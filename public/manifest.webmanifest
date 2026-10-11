@@ -1,0 +1,13 @@
+{
+  "name": "GC - Gestão Casa",
+  "short_name": "GC Casa",
+  "description": "Lista de compras, estoque e lembretes da casa.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f4",
+  "theme_color": "#f5f5f4",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Archive, Download, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { Badge, Button, Field, NumInput, SearchBox, Sheet, Stepper, cx, inputCls, normalize } from './ui'
-import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, today, uid, unitInfo } from '../lib/calc'
+import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, suggestedQty, today, uid, unitInfo } from '../lib/calc'
 import { openList } from '../lib/reducer'
 import { migrate } from '../lib/storage'
 import type { Modal } from '../store'
@@ -20,18 +20,30 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
   const opId = useRef(uid())
   const [qty, setQty] = useState(() => editing?.qty ?? (item && remainingQty(item) > 0 ? remainingQty(item) : 1))
   const [price, setPrice] = useState(() => (editing?.unitPrice == null ? '' : editing.unitPrice.toFixed(2).replace('.', ',')))
+  const [name, setName] = useState(p?.name ?? '')
   const done = () => (back ? open(back) : close())
   if (!p) return null
+
+  // renomear direto daqui, sem passar pelo Estoque
+  const dup = state.products.find((x) => x.id !== p.id && normalize(x.name.trim()) === normalize(name.trim()))
+  const nameError = !name.trim() ? 'Informe o nome.' : dup ? `Já existe "${dup.name}".` : null
+  const renamed = name.trim() !== p.name
+  const saveName = (silent = false) => {
+    if (!renamed || nameError) return
+    dispatch({ type: 'product/update', id: p.id, patch: { name: name.trim() } })
+    if (!silent) toast('Nome atualizado')
+  }
 
   const priceN = parseNum(price)
   const priceError = price.trim() && (priceN == null || priceN < 0 || priceN > 100000) ? 'Preço inválido.' : null
   const u = unitInfo(p.unit)
 
   const submit = () => {
-    if (qty <= 0 || priceError) return
+    if (qty <= 0 || priceError || (renamed && nameError)) return
+    saveName(true)
     if (editing) dispatch({ type: 'purchase/update', id: editing.id, qty, unitPrice: priceN })
     else dispatch({ type: 'purchase/register', id: opId.current, productId, qty, unitPrice: priceN })
-    toast(editing ? 'Compra atualizada' : `${p.name} comprado · estoque ${num(p.stock + qty)} ${u.short}`)
+    toast(editing ? 'Compra atualizada' : `${name.trim()} comprado · estoque ${num(p.stock + qty)} ${u.short}`)
     done()
   }
   const remove = async () => {
@@ -51,12 +63,30 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
       title={p.name}
       onClose={done}
       footer={
-        <Button className="w-full" onClick={submit} disabled={qty <= 0 || !!priceError}>
+        <Button className="w-full" onClick={submit} disabled={qty <= 0 || !!priceError || (renamed && !!nameError)}>
           {editing ? 'Salvar' : 'Comprei'}
         </Button>
       }
     >
       <div className="space-y-4">
+        <Field label="Nome" error={renamed ? nameError ?? undefined : undefined}>
+          <div className="flex gap-2">
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveName()} maxLength={60} enterKeyHint="done" />
+            {renamed && !nameError && <Button variant="soft" className="shrink-0 px-3 text-sm" onClick={() => saveName()}>Salvar nome</Button>}
+          </div>
+        </Field>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {[
+            ['Tenho', num(p.stock)],
+            ['Preciso no mês', num(p.monthlyConsumption ?? 0)],
+            ['Falta', num(suggestedQty(p) ?? 0)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl bg-white px-2 py-2 ring-1 ring-stone-200">
+              <span className="block text-lg font-bold tabular-nums text-stone-900">{value} <span className="text-xs font-medium text-stone-500">{u.short}</span></span>
+              <span className="block text-xs text-stone-500">{label}</span>
+            </div>
+          ))}
+        </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium text-stone-700">Quantidade ({u.label.toLowerCase()})</span>
           <Stepper value={qty} onChange={setQty} label="quantidade comprada" />
@@ -302,7 +332,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.4</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.5</p>
       </div>
     </Sheet>
   )

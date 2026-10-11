@@ -12,7 +12,7 @@ Três abas, pensadas para uso com uma mão:
 | Aba | O que faz |
 |---|---|
 | **Estoque** | Cada produto já mostra **Pacote/Unidade**, **Tenho** (− +) e **Preciso no mês** (− +), agrupados por corredor. Toque no número para digitar o valor exato. Toque no nome para editar (categoria, preço médio opcional, lembrete, desativar). |
-| **Compras** | A lista se monta sozinha: entra tudo o que tem `Tenho < Preciso no mês`. Escolha o mercado (**Andorinha · Giga · Carrefour**) e a lista se ordena pelos corredores dele. Um toque no círculo = comprado (soma ao estoque); toque no nome para informar o preço (opcional) ou tirar desta compra. **Finalizar compras** guarda o histórico; o que faltou continua para a próxima. |
+| **Compras** | A lista se monta sozinha: entra tudo o que tem `Tenho < Preciso no mês`. Escolha o mercado (**Andorinha · Giga · Carrefour**) e a lista se ordena pelos corredores dele. Cada item mostra quanto tem e quanto precisa no mês. Um toque no círculo = comprado (soma ao estoque); toque no nome para renomear, informar o preço (opcional) ou tirar desta compra. **Finalizar compras** guarda o histórico; o que faltou continua para a próxima. |
 | **Lembretes** | "Tem creme dental?" a cada N meses: **Tenho** (confirma o estoque), **Comprar** (vai para a lista), **Adiar 7d**. |
 
 **Mercados e corredores:** em Compras, o botão ⇅ abre o gerenciador:

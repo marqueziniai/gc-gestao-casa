@@ -135,7 +135,8 @@ function TodoRow({ item, product: p }: Row) {
       <button type="button" className="min-w-0 flex-1 py-1 text-left" onClick={() => open({ kind: 'purchase', productId: p.id })}>
         <span className="block truncate font-semibold text-stone-900">{p.name}</span>
         <span className="block text-xs text-stone-500">
-          tem {num(p.stock)} · {item.status === 'partial' ? `pegou ${num(item.boughtQty)}` : p.unit === 'pct' ? 'pacote' : 'unidade'}
+          tem {num(p.stock)} · mês {num(p.monthlyConsumption ?? 0)} {p.unit === 'pct' ? 'pct' : 'un'}
+          {item.status === 'partial' && ` · pegou ${num(item.boughtQty)}`}
           {p.avgPrice != null && ` · ${money(p.avgPrice)}`}
         </span>
       </button>

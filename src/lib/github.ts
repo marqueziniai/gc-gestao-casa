@@ -54,10 +54,25 @@ function fromBase64(b64: string) {
 export async function checkRepo(cfg: SyncConfig): Promise<{ private: boolean }> {
   if (!/^[\w.-]+\/[\w.-]+$/.test(cfg.repo)) throw new SyncError('Repositório deve estar no formato dono/nome.', 'other')
   const res = await call(cfg, `/repos/${cfg.repo}`)
-  if (res.status === 404) throw new SyncError('Repositório não encontrado — confira o nome e se o token tem acesso a ele.', 'notfound')
+  if (res.status === 404) throw new SyncError(await notFoundHint(cfg), 'notfound')
   if (!res.ok) throw new SyncError(`GitHub respondeu ${res.status}.`, 'other')
   const data = await res.json()
   return { private: !!data.private }
+}
+
+/** Explica o "não encontrado": quase sempre o token é de outra conta ou não inclui o repositório. */
+async function notFoundHint(cfg: SyncConfig) {
+  const owner = cfg.repo.split('/')[0]
+  try {
+    const res = await call(cfg, '/user')
+    const login: string | undefined = res.ok ? (await res.json()).login : undefined
+    if (login && login.toLowerCase() !== owner.toLowerCase())
+      return `O token é da conta "${login}", mas o repositório é da conta "${owner}". Crie o token logado como ${owner}.`
+    if (login) return `O token (conta ${login}) não tem acesso a ${cfg.repo}. Ao criar o token, escolha "Only select repositories" e marque ${cfg.repo.split('/')[1]}.`
+  } catch {
+    /* sem detalhe extra */
+  }
+  return 'Repositório não encontrado — confira o nome e se o token tem acesso a ele.'
 }
 
 /** Lê o arquivo de dados. null = ainda não existe. */

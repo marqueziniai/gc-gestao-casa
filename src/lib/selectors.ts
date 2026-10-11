@@ -1,8 +1,9 @@
 import type { AppState, ShoppingList } from '../types'
 import { reminderView, round, today } from './calc'
 
-export const OTHER = 'Outros'
-export const catOf = (c: string) => c.trim() || OTHER
+/** Grupo exibido para produtos sem categoria; não é uma categoria cadastrada. */
+export const NONE = 'Sem categoria'
+export const catOf = (c: string) => c.trim() || NONE
 
 export function listTotals(s: AppState, list: ShoppingList) {
   let estimated = 0
@@ -25,12 +26,15 @@ export function listTotals(s: AppState, list: ShoppingList) {
 
 export const currentMarket = (s: AppState) => s.markets.find((m) => m.id === s.marketId) ?? s.markets[0]
 
-/** Todas as categorias, na ordem do mercado; categorias novas entram antes de "Outros". */
-export function orderedCategories(s: AppState, order = currentMarket(s)?.order ?? []): string[] {
-  const used = new Set(s.products.map((p) => catOf(p.category)))
-  const out = order.filter((c) => c !== OTHER)
-  for (const c of [...used].sort()) if (!out.includes(c) && c !== OTHER) out.push(c)
-  out.push(OTHER)
+/**
+ * Categorias cadastradas na ordem do mercado; as que ainda não estão na ordem dele
+ * entram no fim. "Sem categoria" vem por último quando algum produto está sem categoria.
+ */
+export function orderedCategories(s: AppState, order = currentMarket(s)?.order ?? [], withNone = true): string[] {
+  const known = new Set(s.categories)
+  const out = order.filter((c) => known.has(c))
+  for (const c of s.categories) if (!out.includes(c)) out.push(c)
+  if (withNone && s.products.some((p) => !p.category.trim())) out.push(NONE)
   return out
 }
 

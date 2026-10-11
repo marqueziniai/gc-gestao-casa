@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { Button, Field, NumInput, Sheet, Stepper, UnitToggle, cx, inputCls, normalize } from './ui'
 import { addMonths, dateLabel, money, parseNum, qtyLabel, today, uid } from '../lib/calc'
 import { orderedCategories } from '../lib/selectors'
+import { sameName } from '../lib/reducer'
 import type { Unit } from '../types'
 
 const NEW_CAT = '__nova__'
@@ -20,14 +21,14 @@ const EVERY = [
 export function ProductSheet({ id, addToList }: { id?: string; addToList?: boolean }) {
   const { state, dispatch, toast, close, confirm, open } = useStore()
   const existing = id ? state.products.find((p) => p.id === id) : undefined
-  const categories = useMemo(() => orderedCategories(state), [state])
+  const categories = useMemo(() => orderedCategories(state, undefined, false), [state])
   const purchases = useMemo(
     () => (existing ? state.purchases.filter((x) => x.productId === existing.id).sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)) : []),
     [existing, state.purchases],
   )
 
   const [name, setName] = useState(existing?.name ?? '')
-  const [category, setCategory] = useState(existing?.category || categories[0] || 'Outros')
+  const [category, setCategory] = useState(existing ? existing.category : categories[0] ?? '')
   const [newCat, setNewCat] = useState('')
   const [unit, setUnit] = useState<Unit>(existing?.unit ?? 'un')
   const [stock, setStock] = useState(existing?.stock ?? 0)
@@ -41,7 +42,9 @@ export function ProductSheet({ id, addToList }: { id?: string; addToList?: boole
   const nameError = !name.trim() ? 'Informe o nome.' : dup ? `Já existe "${dup.name}".` : null
   const priceN = parseNum(price)
   const priceError = price.trim() && (priceN == null || priceN < 0 || priceN > 100000) ? 'Preço inválido.' : null
-  const finalCat = (category === NEW_CAT ? newCat : category).trim()
+  const typed = (category === NEW_CAT ? newCat : category).trim()
+  // "pet" vira "Pet" se a categoria já existe, para não duplicar
+  const finalCat = state.categories.find((c) => sameName(c, typed)) ?? typed
   const catError = category === NEW_CAT && !finalCat ? 'Informe a categoria.' : null
   const valid = !nameError && !priceError && !catError
 
@@ -84,6 +87,7 @@ export function ProductSheet({ id, addToList }: { id?: string; addToList?: boole
         <Field label="Categoria (corredor)" error={submitted ? catError ?? undefined : undefined}>
           <select className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)}>
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="">Sem categoria</option>
             <option value={NEW_CAT}>+ Nova categoria…</option>
           </select>
         </Field>

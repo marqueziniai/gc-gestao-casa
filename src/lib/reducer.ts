@@ -30,6 +30,10 @@ export type Action =
   | { type: 'data/restoreInitial' }
   | { type: 'market/select'; id: string }
   | { type: 'market/setOrder'; id: string; order: string[] }
+  | { type: 'market/add'; id: string; name: string }
+  | { type: 'market/remove'; id: string }
+  | { type: 'category/add'; name: string }
+  | { type: 'category/remove'; name: string; withItems: boolean }
 
 export const openList = (s: AppState) => s.lists.find((l) => l.status === 'preparing' || l.status === 'active') ?? null
 
@@ -174,7 +178,16 @@ export function syncList(s: AppState): AppState {
   })
 }
 
-export const reducer = (s: AppState, a: Action): AppState => syncList(baseReducer(s, a))
+/** Toda categoria usada por um produto passa a existir na lista global. */
+function registerCategories(s: AppState): AppState {
+  const missing = [...new Set(s.products.map((p) => p.category.trim()).filter((c) => c && !hasCategory(s.categories, c)))]
+  return missing.length ? { ...s, categories: [...s.categories, ...missing] } : s
+}
+
+export const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('pt-BR') === b.trim().toLocaleLowerCase('pt-BR')
+export const hasCategory = (list: string[], name: string) => list.some((c) => sameName(c, name))
+
+export const reducer = (s: AppState, a: Action): AppState => syncList(registerCategories(baseReducer(s, a)))
 
 function baseReducer(s: AppState, a: Action): AppState {
   switch (a.type) {
@@ -302,6 +315,42 @@ function baseReducer(s: AppState, a: Action): AppState {
       return s.markets.some((m) => m.id === a.id) ? { ...s, marketId: a.id } : s
     case 'market/setOrder':
       return { ...s, markets: s.markets.map((m) => (m.id === a.id ? { ...m, order: [...new Set(a.order)] } : m)) }
+    case 'market/add': {
+      const name = a.name.trim()
+      if (!name || s.markets.some((m) => m.id === a.id || sameName(m.name, name))) return s
+      // começa com a mesma sequência do mercado atual; depois é só ajustar
+      const base = s.markets.find((m) => m.id === s.marketId)?.order ?? s.categories
+      return { ...s, markets: [...s.markets, { id: a.id, name, order: [...base] }], marketId: a.id }
+    }
+    case 'market/remove': {
+      if (s.markets.length <= 1) return s // sempre resta um mercado
+      const markets = s.markets.filter((m) => m.id !== a.id)
+      return { ...s, markets, marketId: s.marketId === a.id ? markets[0].id : s.marketId }
+    }
+    case 'category/add': {
+      const name = a.name.trim()
+      if (!name || hasCategory(s.categories, name)) return s
+      return { ...s, categories: [...s.categories, name] }
+    }
+    case 'category/remove': {
+      const inCat = (c: string) => sameName(c, a.name)
+      const ids = new Set(s.products.filter((p) => inCat(p.category)).map((p) => p.id))
+      const base = {
+        ...s,
+        categories: s.categories.filter((c) => !inCat(c)),
+        markets: s.markets.map((m) => ({ ...m, order: m.order.filter((c) => !inCat(c)) })),
+      }
+      if (!a.withItems) {
+        const now = nowISO()
+        return { ...base, products: s.products.map((p) => (ids.has(p.id) ? { ...p, category: '', updatedAt: now } : p)) }
+      }
+      // exclui os produtos; compras já registradas continuam no histórico
+      return {
+        ...base,
+        products: s.products.filter((p) => !ids.has(p.id)),
+        lists: s.lists.map((l) => (l.status === 'preparing' || l.status === 'active' ? { ...l, items: l.items.filter((i) => !ids.has(i.productId)) } : l)),
+      }
+    }
 
     case 'data/replace':
       return a.state

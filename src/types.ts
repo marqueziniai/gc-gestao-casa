@@ -86,6 +86,8 @@ export interface AppState {
   products: Product[]
   lists: ShoppingList[]
   purchases: Purchase[]
+  /** Categorias (corredores) cadastradas, mesmo sem produtos. */
+  categories: string[]
   markets: Market[]
   marketId: string
   demo: boolean

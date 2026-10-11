@@ -115,3 +115,35 @@ describe('lembretes', () => {
     expect(s.products[0].reminder!.nextCheck).toBe('2999-01-17')
   })
 })
+
+describe('mercados e categorias', () => {
+  const base = () => syncList({ ...withProduct({ category: 'Limpeza' }), categories: ['Bebidas', 'Limpeza'] })
+
+  it('excluir só a categoria deixa os produtos sem categoria', () => {
+    const s = reducer(base(), { type: 'category/remove', name: 'Limpeza', withItems: false })
+    expect(s.categories).toEqual(['Bebidas'])
+    expect(s.products[0].category).toBe('')
+    expect(s.markets.every((m) => !m.order.includes('Limpeza'))).toBe(true)
+  })
+  it('excluir categoria com itens remove os produtos e a linha da lista, mantendo compras', () => {
+    let s = reducer(base(), { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 1, unitPrice: null })
+    s = reducer(s, { type: 'category/remove', name: 'limpeza', withItems: true })
+    expect(s.products).toHaveLength(0)
+    expect(openList(s)!.items).toHaveLength(0)
+    expect(s.purchases).toHaveLength(1)
+  })
+  it('categoria nova não duplica (ignora maiúsculas) e entra ao salvar produto', () => {
+    let s = reducer(base(), { type: 'category/add', name: 'bebidas' })
+    expect(s.categories).toHaveLength(2)
+    s = reducer(s, { type: 'product/update', id: 'p1', patch: { category: 'Pet' } })
+    expect(s.categories).toContain('Pet')
+  })
+  it('adiciona e exclui mercado, mas sempre resta um', () => {
+    let s = reducer(base(), { type: 'market/add', id: 'm4', name: 'Assaí' })
+    expect(s.marketId).toBe('m4')
+    expect(s.markets).toHaveLength(4)
+    for (const m of s.markets) s = reducer(s, { type: 'market/remove', id: m.id })
+    expect(s.markets).toHaveLength(1)
+    expect(s.markets.some((m) => m.id === s.marketId)).toBe(true)
+  })
+})

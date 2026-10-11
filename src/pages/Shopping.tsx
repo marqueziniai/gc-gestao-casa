@@ -44,10 +44,10 @@ export function Shopping() {
   return (
     <div className="space-y-3 md:max-w-2xl">
       <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-x-auto rounded-2xl [scrollbar-width:none]">
           <Segmented value={market.id} onChange={(id) => dispatch({ type: 'market/select', id })} options={state.markets.map((m) => ({ value: m.id, label: m.name }))} />
         </div>
-        <button type="button" onClick={() => open({ kind: 'marketOrder', id: market.id })} className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-stone-600 ring-1 ring-stone-200" aria-label={`Ordenar corredores do ${market.name}`} title="Ordenar corredores">
+        <button type="button" onClick={() => open({ kind: 'marketOrder', id: market.id })} className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-stone-600 ring-1 ring-stone-200" aria-label="Mercados e corredores" title="Mercados e corredores">
           <ArrowDownUp size={20} />
         </button>
       </div>

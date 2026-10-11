@@ -297,14 +297,14 @@ export function UnitToggle({ value, onChange, size = 'md' }: { value: 'un' | 'pc
 /** Abas segmentadas de largura total (ex.: escolha do mercado). */
 export function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="flex rounded-2xl bg-stone-200/70 p-1">
+    <div className="flex w-max min-w-full rounded-2xl bg-stone-200/70 p-1">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={cx('min-h-10 flex-1 truncate rounded-xl px-2 text-sm font-semibold transition-colors', value === o.value ? 'bg-white text-teal-800 shadow-sm' : 'text-stone-600')}
+          className={cx('min-h-10 min-w-[5.5rem] flex-1 truncate rounded-xl px-2 text-sm font-semibold transition-colors', value === o.value ? 'bg-white text-teal-800 shadow-sm' : 'text-stone-600')}
         >
           {o.label}
         </button>

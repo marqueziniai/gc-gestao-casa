@@ -1,5 +1,5 @@
 import type { AppState, Product, Unit } from '../types'
-import { ITEMS, defaultMarkets } from '../seed'
+import { DEFAULT_CATEGORY_ORDER, ITEMS, defaultMarkets } from '../seed'
 
 /**
  * Camada de persistência. O app só conversa com esta interface, então trocar
@@ -34,12 +34,19 @@ const NEW_CATEGORY = new Map(ITEMS.map(([name, category]) => [name, category]))
 export function migrate(d: unknown): AppState | null {
   const s = d as AppState & { version: number }
   if (!s || !Array.isArray(s.products) || !Array.isArray(s.lists) || !Array.isArray(s.purchases)) return null
-  if (s.version === 2) return s
+  if (s.version === 2) return withCategories(s)
   if (s.version !== 1) return null
   const products: Product[] = s.products.map((p) => {
     const unit: Unit = p.unit === 'un' || (p.unit as string) === 'rolo' ? 'un' : p.unit === 'pct' || (p.unit as string) === 'cx' ? 'pct' : 'un'
     const category = OLD_SEED_CATEGORIES.includes(p.category) && NEW_CATEGORY.has(p.name) ? NEW_CATEGORY.get(p.name)! : p.category
     return { ...p, unit, category }
   })
-  return { ...s, version: 2, products, markets: defaultMarkets(), marketId: 'andorinha' }
+  return withCategories({ ...s, version: 2, products, categories: [], markets: defaultMarkets(), marketId: 'andorinha' })
+}
+
+/** Dados anteriores à lista global de categorias: deriva das ordens dos mercados e dos produtos. */
+function withCategories(s: AppState): AppState {
+  if (Array.isArray(s.categories) && s.categories.length) return s
+  const all = [...DEFAULT_CATEGORY_ORDER, ...s.markets.flatMap((m) => m.order), ...s.products.map((p) => p.category.trim())]
+  return { ...s, categories: [...new Set(all.filter(Boolean))] }
 }

@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, ArrowDown, ArrowUp, Download, ListOrdered, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
+import { Archive, Download, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { Badge, Button, Field, NumInput, SearchBox, Sheet, Stepper, cx, inputCls, normalize } from './ui'
-import { catOf, orderedCategories } from '../lib/selectors'
 import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, today, uid, unitInfo } from '../lib/calc'
 import { openList } from '../lib/reducer'
 import { migrate } from '../lib/storage'
@@ -72,78 +71,6 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
           )}
         </div>
       </div>
-    </Sheet>
-  )
-}
-
-/**
- * Sequência de corredores (categorias) de um mercado. Dois jeitos: tocar nos corredores
- * na ordem em que passa (rápido, para montar do zero) ou subir/descer com setas (ajuste fino).
- */
-export function MarketOrderSheet({ marketId }: { marketId: string }) {
-  const { state, dispatch, close, toast } = useStore()
-  const market = state.markets.find((m) => m.id === marketId)
-  const [picking, setPicking] = useState<string[] | null>(null)
-  if (!market) return null
-  const cats = orderedCategories(state, market.order)
-  const count = (c: string) => state.products.filter((p) => p.active && catOf(p.category) === c).length
-  const save = (order: string[]) => dispatch({ type: 'market/setOrder', id: market.id, order })
-  const move = (i: number, d: -1 | 1) => {
-    const next = [...cats]
-    ;[next[i], next[i + d]] = [next[i + d], next[i]]
-    save(next)
-  }
-  const finishPicking = () => {
-    if (!picking) return
-    save([...picking, ...cats.filter((c) => !picking.includes(c))])
-    toast(`Ordem do ${market.name} salva`)
-    close()
-  }
-  const btn = 'grid size-11 place-items-center rounded-xl text-stone-600 hover:bg-stone-100 disabled:opacity-20'
-
-  if (picking) {
-    return (
-      <Sheet title={`Ordem do ${market.name}`} onClose={() => setPicking(null)} footer={<Button className="w-full" onClick={finishPicking}>{picking.length === cats.length ? 'Salvar ordem' : 'Salvar (o resto vai no fim)'}</Button>}>
-        <p className="mb-3 text-sm text-stone-500">Toque nos corredores <strong>na ordem em que você passa</strong> pelo {market.name}. Toque de novo para desmarcar.</p>
-        <ul className="grid gap-2">
-          {cats.map((c) => {
-            const pos = picking.indexOf(c)
-            return (
-              <li key={c}>
-                <button
-                  type="button"
-                  onClick={() => setPicking(pos >= 0 ? picking.filter((x) => x !== c) : [...picking, c])}
-                  className={cx('flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left ring-1', pos >= 0 ? 'bg-teal-50 ring-teal-600' : 'bg-white ring-stone-200')}
-                >
-                  <span className={cx('grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold', pos >= 0 ? 'bg-teal-700 text-white' : 'bg-stone-100 text-stone-400')}>{pos >= 0 ? pos + 1 : ''}</span>
-                  <span className="flex-1 font-medium text-stone-900">{c}</span>
-                  <span className="text-xs text-stone-500">{count(c)}</span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </Sheet>
-    )
-  }
-
-  return (
-    <Sheet title={`Corredores · ${market.name}`} onClose={close} footer={<Button className="w-full" onClick={close}>Pronto</Button>}>
-      <Button variant="soft" className="mb-3 w-full" onClick={() => setPicking([])}><ListOrdered size={18} /> Montar ordem tocando</Button>
-      <p className="mb-2 text-sm text-stone-500">Ou ajuste com as setas. A lista de compras segue esta sequência.</p>
-      <ol className="divide-y divide-stone-200 rounded-xl bg-white ring-1 ring-stone-200">
-        {cats.map((c, i) => (
-          <li key={c} className="flex min-h-13 items-center gap-2 pl-3 pr-1">
-            <span className="w-6 text-sm tabular-nums text-stone-400">{i + 1}</span>
-            <span className="flex-1">
-              <span className="block font-medium text-stone-900">{c}</span>
-              <span className="block text-xs text-stone-500">{count(c)} {count(c) === 1 ? 'produto' : 'produtos'}</span>
-            </span>
-            <button type="button" className={btn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Subir ${c}`}><ArrowUp size={18} /></button>
-            <button type="button" className={btn} disabled={i === cats.length - 1} onClick={() => move(i, 1)} aria-label={`Descer ${c}`}><ArrowDown size={18} /></button>
-          </li>
-        ))}
-      </ol>
     </Sheet>
   )
 }
@@ -375,7 +302,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.3</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.4</p>
       </div>
     </Sheet>
   )

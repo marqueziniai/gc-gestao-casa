@@ -5,7 +5,8 @@ import { Shopping } from './pages/Shopping'
 import { Stock } from './pages/Stock'
 import { Reminders } from './pages/Reminders'
 import { ProductSheet } from './components/ProductSheet'
-import { EnoughSheet, ListSheet, MarketOrderSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
+import { MarketsSheet } from './components/MarketsSheet'
+import { EnoughSheet, ListSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
 import { Button, cx, useTyping } from './components/ui'
 import { openList } from './lib/reducer'
 import { reminderBuckets } from './lib/selectors'
@@ -140,7 +141,7 @@ function Shell() {
       {modal?.kind === 'enough' && <EnoughSheet productId={modal.productId} />}
       {modal?.kind === 'pickItem' && <PickItemSheet />}
       {modal?.kind === 'list' && <ListSheet id={modal.id} />}
-      {modal?.kind === 'marketOrder' && <MarketOrderSheet marketId={modal.id} />}
+      {modal?.kind === 'marketOrder' && <MarketsSheet marketId={modal.id} />}
       {modal?.kind === 'settings' && <SettingsSheet />}
     </div>
   )

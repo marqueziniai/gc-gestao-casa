@@ -15,7 +15,10 @@ Três abas, pensadas para uso com uma mão:
 | **Compras** | A lista se monta sozinha: entra tudo o que tem `Tenho < Preciso no mês`. Escolha o mercado (**Andorinha · Giga · Carrefour**) e a lista se ordena pelos corredores dele. Um toque no círculo = comprado (soma ao estoque); toque no nome para informar o preço (opcional) ou tirar desta compra. **Finalizar compras** guarda o histórico; o que faltou continua para a próxima. |
 | **Lembretes** | "Tem creme dental?" a cada N meses: **Tenho** (confirma o estoque), **Comprar** (vai para a lista), **Adiar 7d**. |
 
-**Ordem dos corredores:** em Compras, o botão ⇅ abre a sequência do mercado escolhido. Use **Montar ordem tocando** (toque nas categorias na ordem em que passa) ou ajuste com ↑ ↓. Cada mercado tem a sua ordem.
+**Mercados e corredores:** em Compras, o botão ⇅ abre o gerenciador:
+- **Mercados:** incluir (começa com a ordem do mercado atual) e excluir, com confirmação; sempre resta pelo menos um.
+- **Categorias:** incluir e excluir. Ao excluir uma categoria com produtos, você escolhe entre **só a categoria** (os produtos vão para "Sem categoria", sempre no fim da lista) ou **categoria e produtos** (as compras já feitas ficam no histórico).
+- **Ordem:** **Montar ordem tocando** (toque nas categorias na sequência em que passa) ou ajuste com ↑ ↓. As categorias valem para todos os mercados, e cada mercado tem a sua ordem.
 
 **Ajustes** (engrenagem): exportar/importar backup (.json), restaurar a lista inicial, apagar dados.
 

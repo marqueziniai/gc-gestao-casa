@@ -120,7 +120,6 @@ export function ProductSheet({ id, addToList }: { id?: string; addToList?: boole
             {productState(existing) === 'configured' && <Badge tone="green">Configurado</Badge>}
             {productState(existing) === 'incomplete' && <Badge tone="amber">Incompleto</Badge>}
             {productState(existing) === 'inactive' && <Badge>Inativo</Badge>}
-            {existing.demo && <Badge tone="blue">Demonstração</Badge>}
           </div>
         )}
         <Field label="Nome" error={submitted || name ? errors.name : undefined}>

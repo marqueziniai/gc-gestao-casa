@@ -1,20 +1,48 @@
-import { addDays, addMonths, today, uid, weightedAvgPrice } from './lib/calc'
-import type { AppState, Product, Purchase } from './types'
+import { uid } from './lib/calc'
+import type { AppState, Product, Unit } from './types'
 
-/** Dados de demonstração, com datas relativas a hoje. */
-export function demoState(): AppState {
+/** Lista inicial da casa: consumo mensal informado, estoque e preços a preencher. */
+const ITEMS: [name: string, category: string, unit: Unit, monthly: number][] = [
+  ['Café', 'Mercearia', 'pct', 2],
+  ['Arroz', 'Mercearia', 'pct', 4],
+  ['Feijão', 'Mercearia', 'pct', 3],
+  ['Macarrão', 'Mercearia', 'pct', 2],
+  ['Molho de tomate', 'Mercearia', 'un', 12],
+  ['Azeitona', 'Mercearia', 'un', 8],
+  ['Milho', 'Mercearia', 'un', 7],
+  ['Óleo', 'Mercearia', 'un', 2],
+  ['Azeite', 'Mercearia', 'un', 3],
+  ['Miojo', 'Mercearia', 'un', 10],
+  ['Orégano', 'Mercearia', 'pct', 1],
+  ['Batata palha', 'Mercearia', 'pct', 4],
+  ['Vinagre', 'Mercearia', 'un', 1],
+  ['Catchup', 'Mercearia', 'un', 1],
+  ['Açúcar', 'Mercearia', 'pct', 3],
+  ['Filtro de papel', 'Mercearia', 'cx', 1],
+  ['Bisnaguinha', 'Padaria e lanches', 'pct', 2],
+  ['Pão de queijo', 'Padaria e lanches', 'pct', 3],
+  ['Biscoito', 'Padaria e lanches', 'pct', 4],
+  ['Bolacha salgada', 'Padaria e lanches', 'pct', 3],
+  ['Fardo', 'Outros', 'pct', 2],
+  ['Creme dental', 'Higiene', 'un', 3],
+  ['Sabonete', 'Higiene', 'un', 6],
+  ['Papel toalha', 'Limpeza', 'pct', 2],
+  ['Omo', 'Limpeza', 'un', 2],
+  ['Amaciante', 'Limpeza', 'un', 2],
+  ['Detergente', 'Limpeza', 'un', 10],
+  ['Desinfetante', 'Limpeza', 'un', 2],
+  ['Cheirinho de banheiro', 'Limpeza', 'un', 2],
+]
+
+export function initialState(): AppState {
   const now = new Date().toISOString()
-  const t = today()
-  const lastMonth = addMonths(t, -1)
-  const twoMonths = addMonths(t, -2)
-
-  const purchases: Purchase[] = []
-  const buy = (productId: string, qty: number, unitPrice: number, date: string) =>
-    purchases.push({ id: uid(), productId, listId: null, qty, unitPrice, date, createdAt: now })
-
-  const base = (p: Partial<Product> & Pick<Product, 'name' | 'category' | 'unit' | 'stock'>): Product => ({
+  const products: Product[] = ITEMS.map(([name, category, unit, monthly]) => ({
     id: uid(),
-    monthlyConsumption: null,
+    name,
+    category,
+    unit,
+    stock: 0,
+    monthlyConsumption: monthly,
     coverageMonths: 1,
     safetyStock: 0,
     packSize: null,
@@ -22,45 +50,10 @@ export function demoState(): AppState {
     lastPrice: null,
     active: true,
     reminder: null,
-    demo: true,
     createdAt: now,
     updatedAt: now,
-    ...p,
-  })
-
-  const products: Product[] = [
-    base({ name: 'Detergente', category: 'Limpeza', unit: 'un', stock: 2, monthlyConsumption: 3, safetyStock: 1 }),
-    base({
-      name: 'Pasta de dente', category: 'Higiene', unit: 'un', stock: 1, monthlyConsumption: 1, safetyStock: 1,
-      reminder: { everyMonths: 2, nextCheck: addDays(t, -2), status: 'scheduled', lastCheck: addMonths(addDays(t, -2), -2) },
-    }),
-    base({ name: 'Arroz 5 kg', category: 'Alimentos', unit: 'pct', stock: 1, monthlyConsumption: 1 }),
-    base({ name: 'Leite', category: 'Alimentos', unit: 'L', stock: 4, monthlyConsumption: 12, safetyStock: 2, packSize: 12 }),
-    base({
-      name: 'Sabão em pó', category: 'Limpeza', unit: 'kg', stock: 0.8, monthlyConsumption: 1.6, packSize: 1.6,
-      reminder: { everyMonths: 1, nextCheck: addDays(t, 5), status: 'scheduled', lastCheck: null },
-    }),
-    base({
-      name: 'Papel higiênico', category: 'Higiene', unit: 'rolo', stock: 6, monthlyConsumption: 12, safetyStock: 4, packSize: 12,
-      reminder: { everyMonths: 1, nextCheck: addDays(t, 12), status: 'scheduled', lastCheck: null },
-    }),
-  ]
-
-  const [det, pasta, arroz, leite, sabao, papel] = products
-  buy(det.id, 3, 2.49, twoMonths); buy(det.id, 3, 2.79, lastMonth)
-  buy(pasta.id, 2, 6.9, twoMonths)
-  buy(arroz.id, 1, 26.9, twoMonths); buy(arroz.id, 1, 28.9, lastMonth)
-  buy(leite.id, 12, 4.99, twoMonths); buy(leite.id, 12, 5.29, lastMonth)
-  buy(sabao.id, 1.6, 14.5, lastMonth)
-  buy(papel.id, 12, 1.95, lastMonth)
-
-  for (const p of products) {
-    const mine = purchases.filter((x) => x.productId === p.id)
-    p.avgPrice = weightedAvgPrice(mine)
-    p.lastPrice = mine.at(-1)?.unitPrice ?? null
-  }
-
-  return { version: 1, products, lists: [], purchases, demo: true }
+  }))
+  return { version: 1, products, lists: [], purchases: [], demo: false }
 }
 
 export const emptyState = (): AppState => ({ version: 1, products: [], lists: [], purchases: [], demo: false })

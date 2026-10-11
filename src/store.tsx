@@ -3,7 +3,7 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { AppState } from './types'
 import { reducer, type Action } from './lib/reducer'
 import { localAdapter, type StorageAdapter } from './lib/storage'
-import { demoState } from './seed'
+import { initialState } from './seed'
 import { Button, Sheet, cx } from './components/ui'
 
 /** Modais globais, abertos de qualquer tela. */
@@ -40,7 +40,11 @@ export const useStore = () => {
 }
 
 export function StoreProvider({ children, adapter = localAdapter }: { children: ReactNode; adapter?: StorageAdapter }) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => adapter.load() ?? demoState())
+  const [state, dispatch] = useReducer(reducer, undefined, () => {
+    const saved = adapter.load()
+    // dados de demonstração antigos (v0.1) são trocados pela lista inicial da casa
+    return saved && !saved.demo ? saved : initialState()
+  })
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: 'ok' | 'error' }[]>([])
   const [confirmState, setConfirm] = useState<(ConfirmOpts & { resolve: (b: boolean) => void }) | null>(null)
   const [modal, setModal] = useState<Modal | null>(null)

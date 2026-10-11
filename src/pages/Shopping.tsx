@@ -136,7 +136,7 @@ function Summary({ t, status }: { t: ReturnType<typeof listTotals>; status: stri
         <span className="text-sm text-stone-500">Total estimado</span>
         <Badge tone={status === 'active' ? 'teal' : 'neutral'}>{status === 'active' ? 'Ativa' : 'Em preparação'}</Badge>
       </div>
-      <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">{money(t.estimated)}</p>
+      <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">{t.estimated > 0 || !t.partial ? money(t.estimated) : 'Sem preços ainda'}</p>
       {t.partial && <p className="text-xs text-amber-700">Total parcial — há itens sem preço informado</p>}
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100">
         <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${pct}%` }} />

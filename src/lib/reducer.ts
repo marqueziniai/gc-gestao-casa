@@ -1,6 +1,6 @@
 import type { AppState, ItemStatus, ListItem, Product, Purchase, ShoppingList } from '../types'
 import { addDays, addMonths, monthName, round, suggestedQty, today, uid, weightedAvgPrice } from './calc'
-import { demoState, emptyState } from '../seed'
+import { initialState, emptyState } from '../seed'
 
 export type NewProduct = Pick<Product, 'name' | 'unit' | 'stock'> & Partial<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>
 
@@ -29,8 +29,8 @@ export type Action =
   | { type: 'reminder/snooze'; productId: string }
   | { type: 'reminder/pause'; productId: string; paused: boolean }
   | { type: 'data/replace'; state: AppState }
-  | { type: 'demo/clear' }
-  | { type: 'demo/restore' }
+  | { type: 'data/clear' }
+  | { type: 'data/restoreInitial' }
 
 export const openList = (s: AppState) => s.lists.find((l) => l.status === 'preparing' || l.status === 'active') ?? null
 
@@ -284,9 +284,9 @@ export function reducer(s: AppState, a: Action): AppState {
 
     case 'data/replace':
       return a.state
-    case 'demo/clear':
+    case 'data/clear':
       return emptyState()
-    case 'demo/restore':
-      return demoState()
+    case 'data/restoreInitial':
+      return initialState()
   }
 }

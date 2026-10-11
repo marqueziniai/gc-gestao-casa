@@ -45,7 +45,8 @@ export function weightedAvgPrice(purchases: Purchase[]): number | null {
 
 export function productState(p: Product): ProductState {
   if (!p.active) return 'inactive'
-  if (p.monthlyConsumption == null || p.monthlyConsumption <= 0 || p.avgPrice == null || !p.category) return 'incomplete'
+  // preço não conta: ele surge naturalmente ao registrar a primeira compra
+  if (p.monthlyConsumption == null || p.monthlyConsumption <= 0 || !p.category) return 'incomplete'
   return 'configured'
 }
 

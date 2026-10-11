@@ -14,7 +14,7 @@ No celular, abra o link e use **"Adicionar à tela inicial"** para instalar como
 | **Estoque** | Catálogo com ajuste rápido (+/−, ou toque no número para digitar), filtros (abaixo do ideal, incompletos, inativos), edição completa e histórico de compras por produto |
 | **Lembretes** | "Tem X?" a cada N meses, com as respostas **Tenho** (confirma o estoque), **Comprar** (vai para a lista) e **Adiar 7d**, além de pausar, editar e revisão do mês |
 | **+** | Cadastro rápido de produto (só nome, unidade e estoque) em qualquer tela |
-| **Ajustes** | Exportar/importar backup (.json), restaurar a demonstração, apagar os dados |
+| **Ajustes** | Exportar/importar backup (.json), restaurar a lista inicial de produtos, apagar os dados |
 
 ### Regras de cálculo
 
@@ -57,7 +57,7 @@ src/
   store.tsx           contexto React, toasts, confirmações e modais
   pages/              Início, Compras, Estoque, Lembretes
   components/         UI base, formulários (sheets) e cards
-  seed.ts             dados de demonstração
+  seed.ts             lista inicial de produtos da casa
 ```
 
 **Para migrar para um banco de dados:** implemente outro `StorageAdapter` (ex.: Supabase/Firebase/API própria). Como todas as mutações já passam por ações do `reducer`, elas podem ser enviadas ao servidor sem mexer nas telas.

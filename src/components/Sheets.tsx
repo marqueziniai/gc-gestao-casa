@@ -273,7 +273,7 @@ export function ItemStatusBadge({ status }: { status: string }) {
   return <Badge tone={tone}>{label}</Badge>
 }
 
-/** Ajustes: backup e dados de demonstração. */
+/** Ajustes: backup e lista inicial. */
 export function SettingsSheet() {
   const { state, dispatch, toast, close, confirm } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -299,15 +299,15 @@ export function SettingsSheet() {
       toast('Arquivo de backup inválido', 'error')
     }
   }
-  const reset = async (demo: boolean) => {
+  const reset = async (initial: boolean) => {
     const ok = await confirm(
-      demo
-        ? { title: 'Restaurar demonstração?', message: 'Todos os dados atuais serão substituídos pelos dados de demonstração.', confirmLabel: 'Restaurar', danger: true }
+      initial
+        ? { title: 'Restaurar lista inicial?', message: 'Todos os dados atuais (estoque, listas e compras) serão substituídos pela lista inicial de produtos.', confirmLabel: 'Restaurar', danger: true }
         : { title: 'Apagar todos os dados?', message: 'Produtos, listas, compras e lembretes serão apagados deste aparelho. Exporte um backup antes, se quiser.', confirmLabel: 'Apagar tudo', danger: true },
     )
     if (!ok) return
-    dispatch({ type: demo ? 'demo/restore' : 'demo/clear' })
-    toast(demo ? 'Demonstração restaurada' : 'Dados apagados — comece cadastrando seus produtos')
+    dispatch({ type: initial ? 'data/restoreInitial' : 'data/clear' })
+    toast(initial ? 'Lista inicial restaurada' : 'Dados apagados — comece cadastrando seus produtos')
     close()
   }
 
@@ -319,9 +319,9 @@ export function SettingsSheet() {
         <Button variant="secondary" className="w-full justify-start" onClick={() => fileRef.current?.click()}><Upload size={18} /> Importar backup</Button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = '' }} />
         <hr className="border-stone-200" />
-        <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar dados de demonstração</Button>
+        <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.1 (MVP)</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.2 (MVP)</p>
       </div>
     </Sheet>
   )

@@ -1,4 +1,4 @@
-import { AlertCircle, ChevronRight, FlaskConical, ShoppingBasket } from 'lucide-react'
+import { AlertCircle, ChevronRight, Info, ShoppingBasket } from 'lucide-react'
 import { useStore } from '../store'
 import { Button, Card, SectionTitle } from '../components/ui'
 import { ReminderCard } from '../components/ReminderCard'
@@ -8,7 +8,7 @@ import { listTotals, needsToBuy, reminderBuckets } from '../lib/selectors'
 import type { Tab } from '../App'
 
 export function Home({ go }: { go: (t: Tab) => void }) {
-  const { state, dispatch, toast, confirm } = useStore()
+  const { state, dispatch, toast } = useStore()
   const ol = openList(state)
   const needs = needsToBuy(state)
   const reminders = reminderBuckets(state)
@@ -30,21 +30,17 @@ export function Home({ go }: { go: (t: Tab) => void }) {
   }
   const totals = ol ? listTotals(state, ol) : null
 
-  const startFresh = async () => {
-    if (await confirm({ title: 'Começar do zero?', message: 'Os dados de demonstração serão apagados para você cadastrar os seus produtos. Dá para restaurá-los depois em Ajustes.', confirmLabel: 'Apagar demonstração', danger: true })) {
-      dispatch({ type: 'demo/clear' })
-      toast('Pronto! Toque em + para cadastrar seu primeiro produto')
-    }
-  }
+  // lista recém-carregada: estoque ainda não informado
+  const fresh = state.products.length > 0 && state.purchases.length === 0 && state.products.every((p) => p.stock === 0)
 
   return (
     <div className="space-y-4">
-      {state.demo && (
+      {fresh && (
         <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
-          <FlaskConical size={20} className="mt-0.5 shrink-0" />
+          <Info size={20} className="mt-0.5 shrink-0" />
           <div className="flex-1">
-            <p><strong>Dados de demonstração.</strong> Explore à vontade — produtos, preços e lembretes são fictícios.</p>
-            <button type="button" onClick={startFresh} className="mt-1 min-h-9 font-semibold underline underline-offset-2">Começar com meus dados</button>
+            <p><strong>Informe o que já tem em casa.</strong> A sugestão de compra desconta o estoque — hoje ele está zerado. Os preços aparecem ao registrar as compras.</p>
+            <button type="button" onClick={() => go('estoque')} className="mt-1 min-h-9 font-semibold underline underline-offset-2">Atualizar estoque</button>
           </div>
         </div>
       )}
@@ -54,7 +50,7 @@ export function Home({ go }: { go: (t: Tab) => void }) {
           {ol && totals ? (
             <>
               <p className="text-sm text-stone-500">Lista de {ol.name.toLowerCase()} · {ol.status === 'active' ? 'em andamento' : 'em preparação'}</p>
-              <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{money(totals.estimated)}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{totals.estimated > 0 || !totals.partial ? money(totals.estimated) : 'Sem preços ainda'}</p>
               <p className="text-sm text-stone-500">estimado{totals.partial && ' (parcial)'} · gasto {money(totals.spent)}</p>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100">
                 <div className="h-full rounded-full bg-teal-600" style={{ width: `${totals.count ? (totals.done / totals.count) * 100 : 0}%` }} />
@@ -65,7 +61,7 @@ export function Home({ go }: { go: (t: Tab) => void }) {
           ) : (
             <>
               <p className="text-sm text-stone-500">Custo estimado para repor</p>
-              <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{money(estimate)}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{estimate > 0 || !partial ? money(estimate) : 'Sem preços ainda'}</p>
               <p className="text-sm text-stone-500">
                 {needs.length} {needs.length === 1 ? 'item precisa' : 'itens precisam'} de compra{partial && ' · total parcial (há itens sem preço)'}
               </p>
@@ -88,7 +84,7 @@ export function Home({ go }: { go: (t: Tab) => void }) {
           {incomplete > 0 && (
             <button type="button" onClick={() => go('estoque')} className="mt-3 flex w-full items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-left text-sm text-amber-900">
               <AlertCircle size={16} className="shrink-0" />
-              {incomplete} {incomplete === 1 ? 'produto sem' : 'produtos sem'} consumo ou preço — complete para receber sugestões.
+              {incomplete} {incomplete === 1 ? 'produto sem' : 'produtos sem'} consumo ou categoria — complete para receber sugestões.
             </button>
           )}
         </Card>

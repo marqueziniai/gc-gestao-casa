@@ -334,7 +334,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.6</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.7</p>
       </div>
     </Sheet>
   )

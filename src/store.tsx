@@ -16,6 +16,7 @@ export type Modal =
   | { kind: 'pickItem' }
   | { kind: 'list'; id: string }
   | { kind: 'marketOrder'; id: string }
+  | { kind: 'join'; code: string }
   | { kind: 'settings' }
 
 interface Ctx {

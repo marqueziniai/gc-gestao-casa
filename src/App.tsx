@@ -7,6 +7,8 @@ import { Reminders } from './pages/Reminders'
 import { ProductSheet } from './components/ProductSheet'
 import { MarketsSheet } from './components/MarketsSheet'
 import { SyncIcon } from './components/SyncSection'
+import { JoinSheet } from './components/JoinSheet'
+import { INVITE_PREFIX } from './lib/invite'
 import { EnoughSheet, ListSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
 import { Button, cx, useTyping } from './components/ui'
 import { openList } from './lib/reducer'
@@ -30,6 +32,15 @@ function Shell() {
   const [tab, setTab] = useState<Tab>(fromHash)
   // teclado aberto no celular: esconde barra inferior e botão + para não cobrirem o campo
   const typing = useTyping()
+
+  // link de convite: tira o código da barra de endereço e pede a senha da casa
+  useEffect(() => {
+    if (!location.hash.startsWith(INVITE_PREFIX)) return
+    const code = location.hash.slice(INVITE_PREFIX.length)
+    history.replaceState(null, '', `${location.pathname}#estoque`)
+    open({ kind: 'join', code })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const onHash = () => setTab(fromHash())
@@ -148,6 +159,7 @@ function Shell() {
       {modal?.kind === 'pickItem' && <PickItemSheet />}
       {modal?.kind === 'list' && <ListSheet id={modal.id} />}
       {modal?.kind === 'marketOrder' && <MarketsSheet marketId={modal.id} />}
+      {modal?.kind === 'join' && <JoinSheet code={modal.code} />}
       {modal?.kind === 'settings' && <SettingsSheet />}
     </div>
   )

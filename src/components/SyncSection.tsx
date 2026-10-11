@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, Cloud, CloudOff, RefreshCw } from 'lucide-react'
+import { ChevronDown, Cloud, CloudOff, Copy, RefreshCw, Share2, UserPlus } from 'lucide-react'
 import { useStore } from '../store'
 import { Button, Field, cx, inputCls } from './ui'
 import { SyncError } from '../lib/github'
+import { createInvite, inviteLink } from '../lib/invite'
 import type { SyncStatus } from '../lib/useSync'
 
 const DEFAULT_REPO = 'marqueziniai/gc-gestao-casa-dados'
@@ -61,6 +62,7 @@ export function SyncSection() {
             {sync.error && <p className="mt-1 text-xs text-red-600">{sync.error}</p>}
           </div>
         </div>
+        <InviteBox />
         <div className="mt-3 flex gap-2">
           <Button variant="soft" className="flex-1 text-sm" onClick={() => void sync.syncNow()} disabled={sync.status === 'syncing'}>
             <RefreshCw size={16} className={cx(sync.status === 'syncing' && 'animate-spin')} /> Sincronizar agora
@@ -118,6 +120,79 @@ export function SyncSection() {
         </div>
       )}
     </section>
+  )
+}
+
+/** Gera o link de convite protegido pela senha da casa. */
+function InviteBox() {
+  const { sync, toast } = useStore()
+  const [open, setOpen] = useState(false)
+  const [pass, setPass] = useState('')
+  const [pass2, setPass2] = useState('')
+  const [link, setLink] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  if (!sync.cfg) return null
+  const error = pass.length > 0 && pass.length < 8 ? 'Use pelo menos 8 caracteres.' : pass2 && pass !== pass2 ? 'As senhas não conferem.' : null
+
+  const generate = async () => {
+    if (!sync.cfg || error || !pass || pass !== pass2) return
+    setBusy(true)
+    try {
+      setLink(inviteLink(await createInvite({ repo: sync.cfg.repo, token: sync.cfg.token }, pass)))
+      setPass('')
+      setPass2('')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const copy = async () => {
+    if (!link) return
+    try {
+      await navigator.clipboard.writeText(link)
+      toast('Link copiado')
+    } catch {
+      toast('Não foi possível copiar', 'error')
+    }
+  }
+  const share = async () => {
+    if (!link) return
+    if (!navigator.share) return copy()
+    try {
+      await navigator.share({ title: 'GC - Gestão Casa', text: 'Convite para a lista de compras da casa. Abra e digite a senha da casa.', url: link })
+    } catch {
+      /* compartilhamento cancelado */
+    }
+  }
+
+  if (!open)
+    return (
+      <Button variant="secondary" className="mt-3 w-full text-sm" onClick={() => setOpen(true)}>
+        <UserPlus size={16} /> Convidar outro celular
+      </Button>
+    )
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
+      {link ? (
+        <>
+          <p className="text-sm text-stone-700">Link pronto. Envie para o outro celular: lá, basta abrir e digitar a <strong>senha da casa</strong>.</p>
+          <div className="flex gap-2">
+            <Button className="flex-1 text-sm" onClick={() => void share()}><Share2 size={16} /> Compartilhar</Button>
+            <Button variant="secondary" className="flex-1 text-sm" onClick={() => void copy()}><Copy size={16} /> Copiar</Button>
+          </div>
+          <p className="text-xs text-stone-500">Dica: diga a senha pessoalmente, não junto com o link.</p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-stone-700">Crie a <strong>senha da casa</strong>. Ela protege o link de convite.</p>
+          <input className={inputCls} type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Senha da casa" autoComplete="new-password" />
+          <input className={inputCls} type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} placeholder="Repita a senha" autoComplete="new-password" />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <Button className="w-full text-sm" onClick={() => void generate()} disabled={busy || !!error || !pass || pass !== pass2}>{busy ? 'Gerando…' : 'Gerar link de convite'}</Button>
+        </>
+      )}
+      <button type="button" className="min-h-9 w-full text-sm text-stone-500" onClick={() => { setOpen(false); setLink(null) }}>Fechar</button>
+    </div>
   )
 }
 

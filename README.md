@@ -42,7 +42,9 @@ Sem banco de dados: os dados ficam em um único arquivo `dados.json` no reposit�
    - Validade: até 1 ano
 2. No app: **Ajustes → Sincronizar entre celulares**, cole o token e toque em **Conectar**.
    - No 1º celular os dados dele vão para o GitHub.
-   - No 2º celular escolha **"Usar os dados do GitHub"**.
+3. Ainda no 1º celular: **Ajustes → Convidar outro celular**, crie a **senha da casa** e compartilhe o link.
+   - No 2º celular, abra o link e digite a senha da casa. Pronto.
+   - O link leva o token criptografado com a senha da casa (AES-GCM + PBKDF2) depois do `#`, parte que nunca é enviada a servidor algum. A senha não fica gravada em lugar nenhum.
 
 **Como funciona:**
 - **Quando sincroniza:** baixa ao abrir, ao voltar para o app e a cada minuto. Envia ~2,5 s depois de cada alteração.

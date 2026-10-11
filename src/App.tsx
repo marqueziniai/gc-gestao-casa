@@ -6,6 +6,7 @@ import { Stock } from './pages/Stock'
 import { Reminders } from './pages/Reminders'
 import { ProductSheet } from './components/ProductSheet'
 import { MarketsSheet } from './components/MarketsSheet'
+import { SyncIcon } from './components/SyncSection'
 import { EnoughSheet, ListSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
 import { Button, cx, useTyping } from './components/ui'
 import { openList } from './lib/reducer'
@@ -25,7 +26,7 @@ const fromHash = (): Tab => {
 }
 
 function Shell() {
-  const { state, modal, open } = useStore()
+  const { state, modal, open, sync } = useStore()
   const [tab, setTab] = useState<Tab>(fromHash)
   // teclado aberto no celular: esconde barra inferior e botão + para não cobrirem o campo
   const typing = useTyping()
@@ -72,7 +73,7 @@ function Shell() {
           ))}
         </nav>
         <button type="button" onClick={() => open({ kind: 'settings' })} className="mt-auto flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-stone-500 hover:bg-stone-100">
-          <Settings size={18} /> Ajustes e backup
+          <Settings size={18} /> Ajustes e sincronização
         </button>
       </aside>
 
@@ -86,6 +87,11 @@ function Shell() {
             <div className="flex items-center gap-1">
               {tab === 'lembretes' && (
                 <Button variant="soft" className="min-h-10 px-3 text-sm" onClick={() => open({ kind: 'reminder' })}><Plus size={16} /> Lembrete</Button>
+              )}
+              {sync.cfg && (
+                <button type="button" onClick={() => (sync.status === 'idle' ? void sync.syncNow() : open({ kind: 'settings' }))} className="grid size-11 place-items-center rounded-full hover:bg-stone-200" aria-label="Sincronização" title={sync.error ?? 'Sincronizado'}>
+                  <SyncIcon status={sync.status} />
+                </button>
               )}
               <button type="button" onClick={() => open({ kind: 'settings' })} className="grid size-11 place-items-center rounded-full text-stone-500 hover:bg-stone-200 md:hidden" aria-label="Ajustes">
                 <Settings size={20} />

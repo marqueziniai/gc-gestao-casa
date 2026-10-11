@@ -4,6 +4,7 @@ import type { AppState } from './types'
 import { reducer, syncList, type Action } from './lib/reducer'
 import { localAdapter, type StorageAdapter } from './lib/storage'
 import { initialState } from './seed'
+import { useSync, type SyncApi } from './lib/useSync'
 import { Button, Sheet, cx } from './components/ui'
 
 /** Modais globais, abertos de qualquer tela. */
@@ -25,6 +26,7 @@ interface Ctx {
   modal: Modal | null
   open: (m: Modal) => void
   close: () => void
+  sync: SyncApi
 }
 interface ConfirmOpts {
   title: string
@@ -71,9 +73,10 @@ export function StoreProvider({ children, adapter = localAdapter }: { children: 
     setConfirm(null)
   }
   const close = useCallback(() => setModal(null), [])
+  const sync = useSync(state, dispatch)
 
   return (
-    <StoreCtx.Provider value={{ state, dispatch, toast, confirm, modal, open: setModal, close }}>
+    <StoreCtx.Provider value={{ state, dispatch, toast, confirm, modal, open: setModal, close, sync }}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-[70] flex flex-col items-center gap-2 px-4" aria-live="polite">
         {toasts.map((t) => (

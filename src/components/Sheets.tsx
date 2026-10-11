@@ -5,6 +5,7 @@ import { Badge, Button, Field, NumInput, SearchBox, Sheet, Stepper, cx, inputCls
 import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, suggestedQty, today, uid, unitInfo } from '../lib/calc'
 import { openList } from '../lib/reducer'
 import { migrate } from '../lib/storage'
+import { SyncSection } from './SyncSection'
 import type { Modal } from '../store'
 
 /**
@@ -325,14 +326,15 @@ export function SettingsSheet() {
   return (
     <Sheet title="Ajustes" onClose={close}>
       <div className="space-y-3">
-        <p className="text-sm text-stone-500">Os dados ficam salvos neste aparelho/navegador. Use o backup para levar para outro aparelho.</p>
+        <SyncSection />
+        <p className="pt-1 text-sm text-stone-500">Backup manual (arquivo .json):</p>
         <Button variant="secondary" className="w-full justify-start" onClick={exportData}><Download size={18} /> Exportar backup (.json)</Button>
         <Button variant="secondary" className="w-full justify-start" onClick={() => fileRef.current?.click()}><Upload size={18} /> Importar backup</Button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = '' }} />
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.5</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.6</p>
       </div>
     </Sheet>
   )

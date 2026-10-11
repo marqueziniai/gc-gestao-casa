@@ -31,6 +31,27 @@ Três abas, pensadas para uso com uma mão:
 - **Lembretes:** próxima data a partir do dia da checagem, respeitando meses curtos; "Adiar" nunca antecipa a data.
 - **Teclado no iPhone:** os formulários acompanham a área visível acima do teclado (`visualViewport`) e a barra inferior se esconde enquanto você digita.
 
+## Sincronização entre celulares (GitHub privado)
+
+Sem banco de dados: os dados ficam em um único arquivo `dados.json` no repositório **privado** [`marqueziniai/gc-gestao-casa-dados`](https://github.com/marqueziniai/gc-gestao-casa-dados). O app público não contém dados nem credenciais.
+
+**Configurar (uma vez por celular):**
+1. No GitHub: *Settings → Developer settings → Fine-grained tokens → Generate new token* ([link direto](https://github.com/settings/personal-access-tokens/new)).
+   - Repository access: **Only select repositories** → `gc-gestao-casa-dados`
+   - Permissions → Repository → **Contents: Read and write**
+   - Validade: até 1 ano
+2. No app: **Ajustes → Sincronizar entre celulares**, cole o token e toque em **Conectar**.
+   - No 1º celular os dados dele vão para o GitHub.
+   - No 2º celular escolha **"Usar os dados do GitHub"**.
+
+**Como funciona:**
+- **Quando sincroniza:** baixa ao abrir, ao voltar para o app e a cada minuto. Envia ~2,5 s depois de cada alteração.
+- **Edição nos dois celulares:** uma junção de três vias (`src/lib/merge.ts`) combina as alterações por registro e por campo. Se cada um marcar itens diferentes da lista, as duas marcações ficam. Se o GitHub mudar entre baixar e enviar, ele recusa a gravação e o app junta de novo antes de tentar outra vez.
+- **Histórico:** cada sincronização é um commit, então dá para voltar versões pelo histórico do repositório.
+- **Segurança:** o token fica só no navegador de cada celular e enxerga apenas o repositório de dados.
+
+**Limitação:** se os dois celulares alterarem **o mesmo campo do mesmo produto** quase ao mesmo tempo (ex.: o "Tenho" do café), vale a alteração de quem sincronizar por último.
+
 ## Executar localmente
 
 Requisitos: Node.js 20+.
@@ -64,7 +85,7 @@ src/
 
 ## Limitações conhecidas
 
-- Os dados ficam **no navegador do aparelho** (localStorage), sem sincronização entre celular e computador. Use **Ajustes → Exportar/Importar backup** para transferir.
+- Sem a sincronização ligada, os dados ficam só no navegador do aparelho (localStorage).
 - Lembretes aparecem **dentro do app**. Notificações push em segundo plano exigem backend/serviço de push e ficam para uma próxima etapa.
 - Um único usuário/casa, sem login.
 - Os produtos são contados por pacote ou unidade (sem kg/L).

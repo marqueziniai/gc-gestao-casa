@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addMonths, suggestedQty, weightedAvgPrice } from './calc'
-import { openList, reducer } from './reducer'
+import { openList, reducer, syncList } from './reducer'
 import { emptyState } from '../seed'
 import type { AppState, Product } from '../types'
 
@@ -29,15 +29,15 @@ describe('cálculos', () => {
 
 describe('fluxo de compras', () => {
   it('gera lista sem duplicar e só uma lista aberta', () => {
-    let s = reducer(withProduct(), { type: 'list/generate' })
-    s = reducer(s, { type: 'list/generate' })
+    let s = syncList(withProduct())
     s = reducer(s, { type: 'list/addItem', productId: 'p1' })
+    s = reducer(s, { type: 'stock/set', id: 'p1', qty: 1 })
     expect(s.lists).toHaveLength(1)
     expect(openList(s)!.items).toHaveLength(1)
   })
 
   it('compra atualiza estoque, preço médio e status uma única vez', () => {
-    let s = reducer(withProduct(), { type: 'list/generate' })
+    let s = syncList(withProduct())
     const buy = { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 2, unitPrice: 4 } as const
     s = reducer(reducer(s, buy), buy) // duplo envio
     expect(s.purchases).toHaveLength(1)
@@ -62,13 +62,34 @@ describe('fluxo de compras', () => {
   })
 
   it('fechar ciclo preserva estoque e histórico', () => {
-    let s = reducer(withProduct(), { type: 'list/generate' })
+    let s = syncList(withProduct())
     s = reducer(s, { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 1, unitPrice: 3 })
     s = reducer(s, { type: 'list/close' })
-    expect(openList(s)).toBeNull()
-    expect(s.lists[0].status).toBe('closed')
+    expect(s.lists.filter((l) => l.status === 'closed')).toHaveLength(1)
+    expect(openList(s)!.items).toHaveLength(1) // nova lista já recalculada: ainda falta 1
     expect(s.products[0].stock).toBe(3)
     expect(s.purchases).toHaveLength(1)
+  })
+})
+
+describe('lista automática', () => {
+  it('entra quando falta e sai quando o estoque cobre', () => {
+    let s = syncList(withProduct({ stock: 0, safetyStock: 0 }))
+    expect(openList(s)!.items[0].plannedQty).toBe(3)
+    s = reducer(s, { type: 'stock/set', id: 'p1', qty: 3 })
+    expect(openList(s)!.items).toHaveLength(0)
+  })
+  it('compra sem preço soma estoque e não altera o preço médio', () => {
+    let s = syncList(withProduct({ avgPrice: 2.5 }))
+    s = reducer(s, { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 2, unitPrice: null })
+    expect(s.products[0].stock).toBe(4)
+    expect(s.products[0].avgPrice).toBe(2.5)
+    expect(openList(s)!.items[0].status).toBe('bought')
+  })
+  it('zerar a quantidade tira o item da compra sem removê-lo', () => {
+    let s = syncList(withProduct())
+    s = reducer(s, { type: 'list/setPlanned', productId: 'p1', qty: 0 })
+    expect(openList(s)!.items[0].status).toBe('skipped')
   })
 })
 

@@ -1,29 +1,50 @@
 import { uid } from './lib/calc'
-import type { AppState, Product, Unit } from './types'
+import type { AppState, Market, Product, Unit } from './types'
+
+/** Categorias pensadas como corredores de mercado. */
+export const DEFAULT_CATEGORY_ORDER = [
+  'Bebidas',
+  'Hortifruti',
+  'Padaria',
+  'Frios e laticínios',
+  'Matinais',
+  'Grãos e massas',
+  'Molhos e conservas',
+  'Óleos e temperos',
+  'Biscoitos e snacks',
+  'Congelados',
+  'Higiene',
+  'Limpeza',
+  'Outros',
+]
+
+/** Mercados na sequência em que são visitados. */
+export const defaultMarkets = (): Market[] =>
+  ['Andorinha', 'Giga', 'Carrefour'].map((name) => ({ id: name.toLowerCase(), name, order: [...DEFAULT_CATEGORY_ORDER] }))
 
 /** Lista inicial da casa: consumo mensal informado, estoque e preços a preencher. */
-const ITEMS: [name: string, category: string, unit: Unit, monthly: number][] = [
-  ['Café', 'Mercearia', 'pct', 2],
-  ['Arroz', 'Mercearia', 'pct', 4],
-  ['Feijão', 'Mercearia', 'pct', 3],
-  ['Macarrão', 'Mercearia', 'pct', 2],
-  ['Molho de tomate', 'Mercearia', 'un', 12],
-  ['Azeitona', 'Mercearia', 'un', 8],
-  ['Milho', 'Mercearia', 'un', 7],
-  ['Óleo', 'Mercearia', 'un', 2],
-  ['Azeite', 'Mercearia', 'un', 3],
-  ['Miojo', 'Mercearia', 'un', 10],
-  ['Orégano', 'Mercearia', 'pct', 1],
-  ['Batata palha', 'Mercearia', 'pct', 4],
-  ['Vinagre', 'Mercearia', 'un', 1],
-  ['Catchup', 'Mercearia', 'un', 1],
-  ['Açúcar', 'Mercearia', 'pct', 3],
-  ['Filtro de papel', 'Mercearia', 'cx', 1],
-  ['Bisnaguinha', 'Padaria e lanches', 'pct', 2],
-  ['Pão de queijo', 'Padaria e lanches', 'pct', 3],
-  ['Biscoito', 'Padaria e lanches', 'pct', 4],
-  ['Bolacha salgada', 'Padaria e lanches', 'pct', 3],
-  ['Fardo', 'Outros', 'pct', 2],
+export const ITEMS: [name: string, category: string, unit: Unit, monthly: number][] = [
+  ['Fardo', 'Bebidas', 'pct', 2],
+  ['Bisnaguinha', 'Padaria', 'pct', 2],
+  ['Café', 'Matinais', 'pct', 2],
+  ['Açúcar', 'Matinais', 'pct', 3],
+  ['Filtro de papel', 'Matinais', 'pct', 1],
+  ['Arroz', 'Grãos e massas', 'pct', 4],
+  ['Feijão', 'Grãos e massas', 'pct', 3],
+  ['Macarrão', 'Grãos e massas', 'pct', 2],
+  ['Miojo', 'Grãos e massas', 'un', 10],
+  ['Molho de tomate', 'Molhos e conservas', 'un', 12],
+  ['Azeitona', 'Molhos e conservas', 'un', 8],
+  ['Milho', 'Molhos e conservas', 'un', 7],
+  ['Catchup', 'Molhos e conservas', 'un', 1],
+  ['Óleo', 'Óleos e temperos', 'un', 2],
+  ['Azeite', 'Óleos e temperos', 'un', 3],
+  ['Vinagre', 'Óleos e temperos', 'un', 1],
+  ['Orégano', 'Óleos e temperos', 'pct', 1],
+  ['Biscoito', 'Biscoitos e snacks', 'pct', 4],
+  ['Bolacha salgada', 'Biscoitos e snacks', 'pct', 3],
+  ['Batata palha', 'Biscoitos e snacks', 'pct', 4],
+  ['Pão de queijo', 'Congelados', 'pct', 3],
   ['Creme dental', 'Higiene', 'un', 3],
   ['Sabonete', 'Higiene', 'un', 6],
   ['Papel toalha', 'Limpeza', 'pct', 2],
@@ -53,7 +74,15 @@ export function initialState(): AppState {
     createdAt: now,
     updatedAt: now,
   }))
-  return { version: 1, products, lists: [], purchases: [], demo: false }
+  return { ...emptyState(), products }
 }
 
-export const emptyState = (): AppState => ({ version: 1, products: [], lists: [], purchases: [], demo: false })
+export const emptyState = (): AppState => ({
+  version: 2,
+  products: [],
+  lists: [],
+  purchases: [],
+  markets: defaultMarkets(),
+  marketId: 'andorinha',
+  demo: false,
+})

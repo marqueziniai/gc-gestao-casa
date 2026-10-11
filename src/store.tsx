@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { AppState } from './types'
-import { reducer, type Action } from './lib/reducer'
+import { reducer, syncList, type Action } from './lib/reducer'
 import { localAdapter, type StorageAdapter } from './lib/storage'
 import { initialState } from './seed'
 import { Button, Sheet, cx } from './components/ui'
@@ -14,6 +14,7 @@ export type Modal =
   | { kind: 'enough'; productId: string }
   | { kind: 'pickItem' }
   | { kind: 'list'; id: string }
+  | { kind: 'marketOrder'; id: string }
   | { kind: 'settings' }
 
 interface Ctx {
@@ -43,7 +44,7 @@ export function StoreProvider({ children, adapter = localAdapter }: { children: 
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const saved = adapter.load()
     // dados de demonstração antigos (v0.1) são trocados pela lista inicial da casa
-    return saved && !saved.demo ? saved : initialState()
+    return syncList(saved && !saved.demo ? saved : initialState())
   })
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: 'ok' | 'error' }[]>([])
   const [confirmState, setConfirm] = useState<(ConfirmOpts & { resolve: (b: boolean) => void }) | null>(null)

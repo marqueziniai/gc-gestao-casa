@@ -5,31 +5,28 @@ Web app **mobile-first** para gerenciar as compras mensais da casa: estoque, con
 **Usar agora:** https://marqueziniai.github.io/gc-gestao-casa/
 No celular, abra o link e use **"Adicionar à tela inicial"** para instalar como app (PWA).
 
-## Funcionalidades (MVP)
+## Como funciona
 
-| Área | O que faz |
+Três abas, pensadas para uso com uma mão:
+
+| Aba | O que faz |
 |---|---|
-| **Início** | Resumo do mês, custo estimado, itens a comprar e lembretes vencidos com resposta rápida |
-| **Compras** | Lista mensal gerada pelas sugestões, quantidades editáveis (+/−), registro de compra real (quantidade + preço), ignorar no ciclo, busca/filtros, total estimado × gasto, fechamento de ciclo e histórico |
-| **Estoque** | Catálogo com ajuste rápido (+/−, ou toque no número para digitar), filtros (abaixo do ideal, incompletos, inativos), edição completa e histórico de compras por produto |
-| **Lembretes** | "Tem X?" a cada N meses, com as respostas **Tenho** (confirma o estoque), **Comprar** (vai para a lista) e **Adiar 7d**, além de pausar, editar e revisão do mês |
-| **+** | Cadastro rápido de produto (só nome, unidade e estoque) em qualquer tela |
-| **Ajustes** | Exportar/importar backup (.json), restaurar a lista inicial de produtos, apagar os dados |
+| **Estoque** | Cada produto já mostra **Pacote/Unidade**, **Tenho** (− +) e **Preciso no mês** (− +), agrupados por corredor. Toque no número para digitar o valor exato. Toque no nome para editar (categoria, preço médio opcional, lembrete, desativar). |
+| **Compras** | A lista se monta sozinha: entra tudo o que tem `Tenho < Preciso no mês`. Escolha o mercado (**Andorinha · Giga · Carrefour**) e a lista se ordena pelos corredores dele. Um toque no círculo = comprado (soma ao estoque); toque no nome para informar o preço (opcional) ou tirar desta compra. **Finalizar compras** guarda o histórico; o que faltou continua para a próxima. |
+| **Lembretes** | "Tem creme dental?" a cada N meses: **Tenho** (confirma o estoque), **Comprar** (vai para a lista), **Adiar 7d**. |
 
-### Regras de cálculo
+**Ordem dos corredores:** em Compras, o botão ⇅ abre a sequência do mercado escolhido. Use **Montar ordem tocando** (toque nas categorias na ordem em que passa) ou ajuste com ↑ ↓. Cada mercado tem a sua ordem.
 
-- **Sugestão:** `max(0, consumo_mensal × meses_cobertura + reserva − estoque)`, arredondada para o múltiplo da embalagem. Produtos sem consumo configurado não recebem sugestão.
-- **Custo estimado:** `quantidade_planejada × preço_médio`. Itens sem preço aparecem como "Preço não informado" e o total fica marcado como parcial.
-- **Preço médio:** média ponderada `Σ(qtd × preço) / Σ(qtd)` de todas as compras registradas. Editar ou excluir uma compra recalcula a média.
-- **Estoque:** `estoque + quantidade_comprada` na mesma operação que registra a compra. O estoque nunca fica negativo e não é zerado na virada do mês.
-- **Lembretes:** a próxima data é calculada a partir do dia da checagem, respeitando meses curtos (31/01 + 1 mês = 28/02 ou 29/02). "Adiar" soma 7 dias e nunca antecipa a data.
+**Ajustes** (engrenagem): exportar/importar backup (.json), restaurar a lista inicial, apagar dados.
 
-### Integridade garantida
+### Regras
 
-- Uma lista aberta por vez (estados: em preparação → ativa → fechada → arquivada).
-- Uma linha por produto na lista. Adicionar de novo atualiza a linha, nunca duplica.
-- Cada compra tem um id gerado ao abrir o formulário, então um toque duplo não registra duas vezes.
-- Produto com histórico de compras não pode ser excluído, só desativado (o histórico é preservado).
+- **Falta comprar:** `max(0, preciso_no_mês − tenho)`. Produtos sem "preciso no mês" não entram sozinhos (dá para adicionar à mão).
+- **Preço médio (opcional):** média ponderada das compras com preço `Σ(qtd × preço) / Σ(qtd)`. Compras sem preço só atualizam o estoque.
+- **Estoque:** a compra soma ao estoque na mesma operação; nunca fica negativo; não é zerado na virada do mês.
+- **Lista:** sempre uma lista aberta, uma linha por produto. Itens ajustados à mão, comprados ou tirados da compra não são alterados pela atualização automática.
+- **Lembretes:** próxima data a partir do dia da checagem, respeitando meses curtos; "Adiar" nunca antecipa a data.
+- **Teclado no iPhone:** os formulários acompanham a área visível acima do teclado (`visualViewport`) e a barra inferior se esconde enquanto você digita.
 
 ## Executar localmente
 
@@ -67,4 +64,4 @@ src/
 - Os dados ficam **no navegador do aparelho** (localStorage), sem sincronização entre celular e computador. Use **Ajustes → Exportar/Importar backup** para transferir.
 - Lembretes aparecem **dentro do app**. Notificações push em segundo plano exigem backend/serviço de push e ficam para uma próxima etapa.
 - Um único usuário/casa, sem login.
-- O preço é por unidade de medida do produto. Não há conversão automática entre unidades (ex.: g ↔ kg).
+- Os produtos são contados por pacote ou unidade (sem kg/L).

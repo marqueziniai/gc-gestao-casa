@@ -1,7 +1,7 @@
 // Modelo de dados do GC - Gestão Casa.
 // Datas de calendário são strings "YYYY-MM-DD"; carimbos de tempo são ISO completos.
 
-export type Unit = 'un' | 'pct' | 'cx' | 'rolo' | 'kg' | 'g' | 'L' | 'mL'
+export type Unit = 'un' | 'pct'
 
 export type ReminderStatus = 'scheduled' | 'snoozed' | 'done' | 'paused'
 /** Estado exibido: inclui "vencido", que é derivado da data. */
@@ -68,15 +68,25 @@ export interface Purchase {
   productId: string
   listId: string | null
   qty: number
-  unitPrice: number
+  /** Preço por unidade/pacote; opcional (null = não informado). */
+  unitPrice: number | null
   date: string
   createdAt: string
 }
 
+/** Mercado com a sequência de categorias (corredores) em que é percorrido. */
+export interface Market {
+  id: string
+  name: string
+  order: string[]
+}
+
 export interface AppState {
-  version: 1
+  version: 2
   products: Product[]
   lists: ShoppingList[]
   purchases: Purchase[]
+  markets: Market[]
+  marketId: string
   demo: boolean
 }

@@ -9,9 +9,6 @@ export type Action =
   | { type: 'product/update'; id: string; patch: Partial<Omit<Product, 'id' | 'createdAt'>> }
   | { type: 'product/delete'; id: string }
   | { type: 'stock/set'; id: string; qty: number }
-  | { type: 'list/generate' }
-  | { type: 'list/refresh' }
-  | { type: 'list/start' }
   | { type: 'list/addItem'; productId: string; qty?: number }
   | { type: 'list/setPlanned'; productId: string; qty: number }
   | { type: 'list/skip'; productId: string; skip: boolean }
@@ -19,8 +16,8 @@ export type Action =
   | { type: 'list/undoItem'; productId: string }
   | { type: 'list/close' }
   | { type: 'list/archive'; id: string }
-  | { type: 'purchase/register'; id: string; productId: string; qty: number; unitPrice: number; date?: string }
-  | { type: 'purchase/update'; id: string; qty: number; unitPrice: number }
+  | { type: 'purchase/register'; id: string; productId: string; qty: number; unitPrice: number | null; date?: string }
+  | { type: 'purchase/update'; id: string; qty: number; unitPrice: number | null }
   | { type: 'purchase/delete'; id: string }
   | { type: 'reminder/set'; productId: string; everyMonths: number | null; nextCheck: string }
   | { type: 'reminder/remove'; productId: string }
@@ -31,6 +28,8 @@ export type Action =
   | { type: 'data/replace'; state: AppState }
   | { type: 'data/clear' }
   | { type: 'data/restoreInitial' }
+  | { type: 'market/select'; id: string }
+  | { type: 'market/setOrder'; id: string; order: string[] }
 
 export const openList = (s: AppState) => s.lists.find((l) => l.status === 'preparing' || l.status === 'active') ?? null
 
@@ -62,7 +61,7 @@ function newList(s: AppState): ShoppingList {
     const q = suggestedQty(p)
     if (q && q > 0) items.push({ productId: p.id, plannedQty: q, edited: false, boughtQty: 0, status: 'pending', addedAt: nowISO() })
   }
-  return { id: uid(), name: monthName(), status: 'preparing', items, createdAt: nowISO(), closedAt: null }
+  return { id: uid(), name: monthName(), status: 'active', items, createdAt: nowISO(), closedAt: null }
 }
 
 /** Garante uma (e só uma) lista aberta. */
@@ -78,7 +77,8 @@ function upsertItem(s: AppState, productId: string, qty?: number): AppState {
   const fallback = Math.max(suggestedQty(p) ?? 0, p.packSize ?? 0, 1)
   if (existing) {
     return mapItem(s, productId, (i) => {
-      const next: ListItem = { ...i, status: i.status === 'skipped' ? 'pending' : i.status }
+      // pedido manual: a sincronização automática não mexe mais neste item
+      const next: ListItem = { ...i, edited: true, status: i.status === 'skipped' ? 'pending' : i.status }
       if (qty != null) {
         next.plannedQty = clamp0(qty)
         next.edited = true
@@ -89,7 +89,7 @@ function upsertItem(s: AppState, productId: string, qty?: number): AppState {
       return { ...next, status: statusFor(next) }
     })
   }
-  const item: ListItem = { productId, plannedQty: qty != null ? clamp0(qty) : fallback, edited: qty != null, boughtQty: 0, status: 'pending', addedAt: nowISO() }
+  const item: ListItem = { productId, plannedQty: qty != null ? clamp0(qty) : fallback, edited: true, boughtQty: 0, status: 'pending', addedAt: nowISO() }
   return mapOpenList(s, (l) => ({ ...l, items: [...l.items, item] }))
 }
 
@@ -97,7 +97,7 @@ function upsertItem(s: AppState, productId: string, qty?: number): AppState {
 function repriceProduct(s: AppState, productId: string): AppState {
   const mine = s.purchases.filter((x) => x.productId === productId)
   const avg = weightedAvgPrice(mine)
-  const last = [...mine].sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt)).at(-1)
+  const last = mine.filter((x) => x.unitPrice != null).sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt)).at(-1)
   return mapProduct(s, productId, (p) => ({ ...p, avgPrice: avg ?? p.avgPrice, lastPrice: last?.unitPrice ?? p.lastPrice }))
 }
 
@@ -144,7 +144,39 @@ function deletePurchase(s: AppState, id: string): AppState {
   return repriceProduct(s, pur.productId)
 }
 
-export function reducer(s: AppState, a: Action): AppState {
+/**
+ * Mantém sempre uma lista aberta e alinhada ao estoque: itens pendentes não editados
+ * acompanham a necessidade atual; produtos que passam a faltar entram sozinhos; os que
+ * deixam de faltar saem. Itens comprados, ignorados ou ajustados à mão são preservados.
+ */
+export function syncList(s: AppState): AppState {
+  s = ensureList(s)
+  return mapOpenList(s, (l) => {
+    const byId = new Map(s.products.map((p) => [p.id, p]))
+    const items: ListItem[] = []
+    for (const i of l.items) {
+      const p = byId.get(i.productId)
+      if (!p) continue
+      if (i.status !== 'pending' || i.edited) {
+        if (p.active || i.boughtQty > 0) items.push(i)
+        continue
+      }
+      const q = suggestedQty(p)
+      if (q && q > 0) items.push(q === i.plannedQty ? i : { ...i, plannedQty: q })
+    }
+    for (const p of s.products) {
+      const q = suggestedQty(p)
+      if (q && q > 0 && !items.some((i) => i.productId === p.id))
+        items.push({ productId: p.id, plannedQty: q, edited: false, boughtQty: 0, status: 'pending', addedAt: nowISO() })
+    }
+    const same = items.length === l.items.length && items.every((i, k) => i === l.items[k])
+    return same ? l : { ...l, items }
+  })
+}
+
+export const reducer = (s: AppState, a: Action): AppState => syncList(baseReducer(s, a))
+
+function baseReducer(s: AppState, a: Action): AppState {
   switch (a.type) {
     case 'product/add': {
       if (s.products.some((p) => p.id === a.id)) return s
@@ -175,38 +207,22 @@ export function reducer(s: AppState, a: Action): AppState {
     case 'stock/set':
       return mapProduct(s, a.id, (p) => ({ ...p, stock: clamp0(a.qty) }))
 
-    case 'list/generate':
-      return ensureList(s)
-    case 'list/refresh': {
-      const ol = openList(s)
-      if (!ol) return ensureList(s)
-      // atualiza sugestões de itens pendentes não editados e inclui os que passaram a faltar
-      return mapOpenList(s, (l) => {
-        const items = l.items.map((i) => {
-          if (i.edited || i.status !== 'pending') return i
-          const p = s.products.find((x) => x.id === i.productId)
-          const q = p ? suggestedQty(p) : null
-          return q && q > 0 ? { ...i, plannedQty: q } : i
-        })
-        for (const p of s.products) {
-          const q = suggestedQty(p)
-          if (q && q > 0 && !items.some((i) => i.productId === p.id))
-            items.push({ productId: p.id, plannedQty: q, edited: false, boughtQty: 0, status: 'pending', addedAt: nowISO() })
-        }
-        return { ...l, items }
-      })
-    }
-    case 'list/start':
-      return mapOpenList(s, (l) => ({ ...l, status: 'active' }))
     case 'list/addItem':
       return upsertItem(s, a.productId, a.qty)
     case 'list/setPlanned':
       return mapItem(s, a.productId, (i) => {
-        const next = { ...i, plannedQty: clamp0(a.qty), edited: true }
-        return { ...next, status: statusFor(next) }
+        const next: ListItem = { ...i, plannedQty: clamp0(a.qty), edited: true }
+        // zerar a quantidade tira o item desta compra
+        if (next.plannedQty === 0 && next.boughtQty === 0) return { ...next, status: 'skipped' }
+        return { ...next, status: statusFor({ ...next, status: 'pending' }) }
       })
     case 'list/skip':
-      return mapItem(s, a.productId, (i) => (i.boughtQty > 0 ? i : { ...i, status: a.skip ? 'skipped' : 'pending' }))
+      return mapItem(s, a.productId, (i) => {
+        if (i.boughtQty > 0) return i
+        if (a.skip) return { ...i, status: 'skipped' }
+        const p = s.products.find((x) => x.id === i.productId)
+        return { ...i, status: 'pending', plannedQty: Math.max(i.plannedQty, (p && suggestedQty(p)) || 1) }
+      })
     case 'list/removeItem':
       return mapOpenList(s, (l) => ({ ...l, items: l.items.filter((i) => i.productId !== a.productId || i.boughtQty > 0) }))
     case 'list/undoItem': {
@@ -223,7 +239,7 @@ export function reducer(s: AppState, a: Action): AppState {
     case 'purchase/register': {
       // id gerado pela tela: reenviar a mesma ação (duplo toque) não duplica a compra
       if (s.purchases.some((x) => x.id === a.id)) return s
-      if (!(a.qty > 0) || !(a.unitPrice >= 0)) return s
+      if (!(a.qty > 0) || (a.unitPrice != null && !(a.unitPrice >= 0))) return s
       if (!s.products.some((p) => p.id === a.productId)) return s
       let ol = openList(s)
       const inList = ol?.items.some((i) => i.productId === a.productId)
@@ -233,7 +249,7 @@ export function reducer(s: AppState, a: Action): AppState {
       }
       const pur: Purchase = {
         id: a.id, productId: a.productId, listId: inList ? ol!.id : null,
-        qty: round(a.qty), unitPrice: round(a.unitPrice, 4), date: a.date ?? today(), createdAt: nowISO(),
+        qty: round(a.qty), unitPrice: a.unitPrice == null ? null : round(a.unitPrice, 4), date: a.date ?? today(), createdAt: nowISO(),
       }
       s = { ...s, purchases: [...s.purchases, pur] }
       s = mapProduct(s, a.productId, (p) => ({ ...p, stock: clamp0(p.stock + pur.qty) }))
@@ -242,9 +258,9 @@ export function reducer(s: AppState, a: Action): AppState {
     }
     case 'purchase/update': {
       const pur = s.purchases.find((x) => x.id === a.id)
-      if (!pur || !(a.qty > 0) || !(a.unitPrice >= 0)) return s
+      if (!pur || !(a.qty > 0) || (a.unitPrice != null && !(a.unitPrice >= 0))) return s
       const delta = round(a.qty - pur.qty)
-      s = { ...s, purchases: s.purchases.map((x) => (x.id === a.id ? { ...x, qty: round(a.qty), unitPrice: round(a.unitPrice, 4) } : x)) }
+      s = { ...s, purchases: s.purchases.map((x) => (x.id === a.id ? { ...x, qty: round(a.qty), unitPrice: a.unitPrice == null ? null : round(a.unitPrice, 4) } : x)) }
       s = mapProduct(s, pur.productId, (p) => ({ ...p, stock: clamp0(p.stock + delta) }))
       s = applyToListItem(s, pur.listId, pur.productId, delta)
       return repriceProduct(s, pur.productId)
@@ -281,6 +297,11 @@ export function reducer(s: AppState, a: Action): AppState {
         const nextCheck = p.reminder.nextCheck < today() ? today() : p.reminder.nextCheck
         return { ...p, reminder: { ...p.reminder, status: 'scheduled', nextCheck } }
       })
+
+    case 'market/select':
+      return s.markets.some((m) => m.id === a.id) ? { ...s, marketId: a.id } : s
+    case 'market/setOrder':
+      return { ...s, markets: s.markets.map((m) => (m.id === a.id ? { ...m, order: [...new Set(a.order)] } : m)) }
 
     case 'data/replace':
       return a.state

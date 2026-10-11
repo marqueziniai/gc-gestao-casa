@@ -3,15 +3,9 @@ import type { ListItem, Product, ProductState, Purchase, Reminder, ReminderView,
 /** Evita lixo de ponto flutuante (0.1 + 0.2). */
 export const round = (n: number, d = 3) => Math.round(n * 10 ** d) / 10 ** d
 
-export const UNITS: { value: Unit; label: string; step: number; decimals: boolean }[] = [
-  { value: 'un', label: 'unidade', step: 1, decimals: false },
-  { value: 'pct', label: 'pacote', step: 1, decimals: false },
-  { value: 'cx', label: 'caixa', step: 1, decimals: false },
-  { value: 'rolo', label: 'rolo', step: 1, decimals: false },
-  { value: 'kg', label: 'kg', step: 0.5, decimals: true },
-  { value: 'g', label: 'g', step: 100, decimals: true },
-  { value: 'L', label: 'L', step: 0.5, decimals: true },
-  { value: 'mL', label: 'mL', step: 100, decimals: true },
+export const UNITS: { value: Unit; label: string; short: string; step: number; decimals: boolean }[] = [
+  { value: 'pct', label: 'Pacote', short: 'pct', step: 1, decimals: false },
+  { value: 'un', label: 'Unidade', short: 'un', step: 1, decimals: false },
 ]
 export const unitInfo = (u: Unit) => UNITS.find((x) => x.value === u) ?? UNITS[0]
 
@@ -35,7 +29,7 @@ export function weightedAvgPrice(purchases: Purchase[]): number | null {
   let q = 0
   let v = 0
   for (const p of purchases) {
-    if (p.qty > 0 && p.unitPrice >= 0) {
+    if (p.qty > 0 && p.unitPrice != null && p.unitPrice >= 0) {
       q += p.qty
       v += p.qty * p.unitPrice
     }
@@ -97,7 +91,7 @@ export const endOfMonth = (date: string) => {
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 export const money = (n: number) => brl.format(n)
 export const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
-export const qtyLabel = (n: number, u: Unit) => `${num(n)} ${unitInfo(u).value}`
+export const qtyLabel = (n: number, u: Unit) => `${num(n)} ${unitInfo(u).short}`
 export const dateLabel = (s: string) =>
   parseDate(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')
 export const monthName = (date = new Date()) => {

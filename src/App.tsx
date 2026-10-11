@@ -1,34 +1,33 @@
 import { useEffect, useState } from 'react'
-import { BellRing, Home as HomeIcon, Package, Plus, Settings, ShoppingBasket } from 'lucide-react'
+import { BellRing, Package, Plus, Settings, ShoppingBasket } from 'lucide-react'
 import { StoreProvider, useStore } from './store'
-import { Home } from './pages/Home'
 import { Shopping } from './pages/Shopping'
 import { Stock } from './pages/Stock'
 import { Reminders } from './pages/Reminders'
 import { ProductSheet } from './components/ProductSheet'
-import { EnoughSheet, ListSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
-import { Button, cx } from './components/ui'
-import { monthName } from './lib/calc'
+import { EnoughSheet, ListSheet, MarketOrderSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
+import { Button, cx, useTyping } from './components/ui'
 import { openList } from './lib/reducer'
 import { reminderBuckets } from './lib/selectors'
 
-export type Tab = 'inicio' | 'compras' | 'estoque' | 'lembretes'
+export type Tab = 'estoque' | 'compras' | 'lembretes'
 
-const TABS: { id: Tab; label: string; title: string; icon: typeof HomeIcon }[] = [
-  { id: 'inicio', label: 'Início', title: 'Início', icon: HomeIcon },
-  { id: 'compras', label: 'Compras', title: 'Lista de compras', icon: ShoppingBasket },
+const TABS: { id: Tab; label: string; title: string; icon: typeof Package }[] = [
   { id: 'estoque', label: 'Estoque', title: 'Estoque', icon: Package },
+  { id: 'compras', label: 'Compras', title: 'Compras', icon: ShoppingBasket },
   { id: 'lembretes', label: 'Lembretes', title: 'Lembretes', icon: BellRing },
 ]
 
 const fromHash = (): Tab => {
   const h = location.hash.slice(1) as Tab
-  return TABS.some((t) => t.id === h) ? h : 'inicio'
+  return TABS.some((t) => t.id === h) ? h : 'estoque'
 }
 
 function Shell() {
   const { state, modal, open } = useStore()
   const [tab, setTab] = useState<Tab>(fromHash)
+  // teclado aberto no celular: esconde barra inferior e botão + para não cobrirem o campo
+  const typing = useTyping()
 
   useEffect(() => {
     const onHash = () => setTab(fromHash())
@@ -45,8 +44,8 @@ function Shell() {
     lembretes: reminderBuckets(state).overdue.length,
   }
   const current = TABS.find((t) => t.id === tab)!
-  // inclusão rápida: na tela de compras, o produto novo já entra na lista
-  const quickAdd = () => open({ kind: 'product', addToList: tab === 'compras' })
+  // inclusão rápida: nas compras, escolhe um produto (ou cadastra) para a lista
+  const quickAdd = () => open(tab === 'compras' ? { kind: 'pickItem' } : { kind: 'product' })
 
   return (
     <div className="min-h-dvh bg-stone-100 text-stone-900 md:flex">
@@ -56,7 +55,7 @@ function Shell() {
           <img src="./icon.svg" alt="" className="size-8" />
           <span className="font-bold tracking-tight">GC - Gestão Casa</span>
         </div>
-        <Button className="mb-4" onClick={quickAdd}><Plus size={18} /> Novo produto</Button>
+        <Button className="mb-4" onClick={quickAdd}><Plus size={18} /> {tab === 'compras' ? 'Adicionar item' : 'Novo produto'}</Button>
         <nav className="space-y-1">
           {TABS.map((t) => (
             <button
@@ -81,7 +80,7 @@ function Shell() {
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-stone-500 md:hidden">GC - Gestão Casa</p>
-              <h1 className="truncate text-2xl font-bold tracking-tight">{tab === 'inicio' ? monthName() : current.title}</h1>
+              <h1 className="truncate text-2xl font-bold tracking-tight">{current.title}</h1>
             </div>
             <div className="flex items-center gap-1">
               {tab === 'lembretes' && (
@@ -95,9 +94,8 @@ function Shell() {
         </header>
 
         <main className="mx-auto max-w-5xl px-4 pb-32 pt-4 md:px-8 md:pb-12">
-          {tab === 'inicio' && <Home go={go} />}
+          {tab === 'estoque' && <Stock go={go} />}
           {tab === 'compras' && <Shopping />}
-          {tab === 'estoque' && <Stock />}
           {tab === 'lembretes' && <Reminders />}
         </main>
       </div>
@@ -106,15 +104,16 @@ function Shell() {
       <button
         type="button"
         onClick={quickAdd}
-        aria-label="Adicionar produto"
+        aria-label={tab === 'compras' ? 'Adicionar item' : 'Adicionar produto'}
+        hidden={typing || tab === 'lembretes'}
         className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 grid size-14 place-items-center rounded-2xl bg-teal-700 text-white shadow-lg shadow-teal-900/20 active:scale-95 md:hidden"
       >
         <Plus size={26} />
       </button>
 
       {/* barra inferior (mobile) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <div className="grid grid-cols-4">
+      <nav hidden={typing} className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <div className="grid grid-cols-3">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -141,6 +140,7 @@ function Shell() {
       {modal?.kind === 'enough' && <EnoughSheet productId={modal.productId} />}
       {modal?.kind === 'pickItem' && <PickItemSheet />}
       {modal?.kind === 'list' && <ListSheet id={modal.id} />}
+      {modal?.kind === 'marketOrder' && <MarketOrderSheet marketId={modal.id} />}
       {modal?.kind === 'settings' && <SettingsSheet />}
     </div>
   )

@@ -58,7 +58,63 @@ export function EmptyState({ icon, title, text, action }: { icon: ReactNode; tit
   )
 }
 
-/** Bottom sheet no celular, diálogo centralizado no desktop. */
+const viewportBox = () => {
+  const vv = window.visualViewport
+  return vv ? { top: vv.offsetTop, height: vv.height } : { top: 0, height: window.innerHeight }
+}
+
+/**
+ * Área realmente visível da tela. No iPhone o teclado não redimensiona a página — ele
+ * cobre a parte de baixo. O visualViewport informa o espaço que sobra acima dele.
+ */
+export function useViewportBox() {
+  const [box, setBox] = useState(viewportBox)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const on = () => setBox(viewportBox())
+    vv.addEventListener('resize', on)
+    vv.addEventListener('scroll', on)
+    return () => {
+      vv.removeEventListener('resize', on)
+      vv.removeEventListener('scroll', on)
+    }
+  }, [])
+  return box
+}
+
+const isTextField = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'file'].includes((el as HTMLInputElement).type)))
+
+/** true enquanto um campo de texto está em foco (teclado aberto no celular). */
+export function useTyping() {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const onIn = (e: FocusEvent) => isTextField(e.target) && setTyping(true)
+    const onOut = () => setTimeout(() => setTyping(isTextField(document.activeElement)), 50)
+    document.addEventListener('focusin', onIn)
+    document.addEventListener('focusout', onOut)
+    return () => {
+      document.removeEventListener('focusin', onIn)
+      document.removeEventListener('focusout', onOut)
+    }
+  }, [])
+  // um campo removido da tela (ex.: formulário fechado) nem sempre dispara focusout
+  useEffect(() => {
+    if (!typing) return
+    const t = setInterval(() => !isTextField(document.activeElement) && setTyping(false), 400)
+    return () => clearInterval(t)
+  }, [typing])
+  return typing
+}
+
+/** Rola o campo focado para o centro depois que o teclado termina de abrir. */
+export const revealOnFocus = (e: React.FocusEvent) => {
+  const el = e.target
+  if (isTextField(el)) setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+}
+
+/** Bottom sheet no celular, diálogo centralizado no desktop. Fica sempre acima do teclado. */
 export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -70,17 +126,18 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
       document.body.style.overflow = prev
     }
   }, [onClose])
+  const box = useViewportBox()
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label={title}>
+    <div className="fixed inset-x-0 z-50 flex items-end justify-center md:items-center" style={{ top: box.top, height: box.height }} role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-stone-900/40 animate-[fade_.15s_ease-out]" onClick={onClose} />
-      <div className="relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-stone-50 shadow-xl animate-[up_.2s_ease-out] md:max-w-lg md:rounded-3xl">
+      <div className="relative flex max-h-[calc(100%-1.5rem)] w-full flex-col rounded-t-3xl bg-stone-50 shadow-xl animate-[up_.2s_ease-out] md:max-w-lg md:rounded-3xl">
         <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-5 py-3">
           <h2 className="truncate text-lg font-semibold text-stone-900">{title}</h2>
           <button type="button" onClick={onClose} className="-mr-2 grid size-11 place-items-center rounded-full text-stone-500 hover:bg-stone-200" aria-label="Fechar">
             <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-5 py-4" onFocus={revealOnFocus}>{children}</div>
         {footer && <div className="border-t border-stone-200 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>}
       </div>
     </div>
@@ -121,7 +178,10 @@ export function Stepper({ value, onChange, step = 1, size = 'md', label }: { val
   const [text, setText] = useState('')
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    if (editing) ref.current?.select()
+    if (!editing || !ref.current) return
+    ref.current.select()
+    const el = ref.current
+    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
   }, [editing])
   const commit = () => {
     const n = parseNum(text)
@@ -209,3 +269,46 @@ export function SectionTitle({ children, action }: { children: ReactNode; action
 }
 
 export const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/** Seletor Pacote | Unidade. */
+export function UnitToggle({ value, onChange, size = 'md' }: { value: 'un' | 'pct'; onChange: (u: 'un' | 'pct') => void; size?: 'sm' | 'md' }) {
+  return (
+    <div className="flex shrink-0 rounded-xl bg-stone-100 p-0.5" role="radiogroup" aria-label="Unidade">
+      {(['pct', 'un'] as const).map((u) => (
+        <button
+          key={u}
+          type="button"
+          role="radio"
+          aria-checked={value === u}
+          onClick={() => onChange(u)}
+          className={cx(
+            'rounded-[10px] font-medium transition-colors',
+            size === 'sm' ? 'min-h-9 px-2.5 text-xs' : 'min-h-10 px-4 text-sm',
+            value === u ? 'bg-white text-teal-800 shadow-sm' : 'text-stone-500',
+          )}
+        >
+          {u === 'pct' ? 'Pacote' : 'Unidade'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Abas segmentadas de largura total (ex.: escolha do mercado). */
+export function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <div className="flex rounded-2xl bg-stone-200/70 p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={cx('min-h-10 flex-1 truncate rounded-xl px-2 text-sm font-semibold transition-colors', value === o.value ? 'bg-white text-teal-800 shadow-sm' : 'text-stone-600')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}

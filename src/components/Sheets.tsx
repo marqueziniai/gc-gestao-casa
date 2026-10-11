@@ -1,13 +1,17 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, Download, Plus, RotateCcw, Trash2, Upload } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, Download, ListOrdered, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { Badge, Button, Field, NumInput, SearchBox, Sheet, Stepper, cx, inputCls, normalize } from './ui'
+import { catOf, orderedCategories } from '../lib/selectors'
 import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, today, uid, unitInfo } from '../lib/calc'
 import { openList } from '../lib/reducer'
-import { isValidState } from '../lib/storage'
+import { migrate } from '../lib/storage'
 import type { Modal } from '../store'
 
-/** Registrar (ou editar) uma compra real: quantidade + preço pago. */
+/**
+ * Registrar (ou editar) uma compra: só a quantidade é obrigatória; o preço é opcional.
+ * Para itens da lista, oferece também "não comprar desta vez".
+ */
 export function PurchaseSheet({ productId, purchaseId, back }: { productId: string; purchaseId?: string; back?: Modal }) {
   const { state, dispatch, toast, close, open, confirm } = useStore()
   const p = state.products.find((x) => x.id === productId)
@@ -15,81 +19,131 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
   const item = openList(state)?.items.find((i) => i.productId === productId)
   // id fixo por abertura do formulário: toques repetidos não duplicam a compra
   const opId = useRef(uid())
-  const [qty, setQty] = useState(() => editing?.qty ?? (item && remainingQty(item) > 0 ? remainingQty(item) : p?.packSize ?? 1))
-  const [mode, setMode] = useState<'unit' | 'total'>('unit')
-  const [price, setPrice] = useState(() => {
-    const v = editing?.unitPrice ?? p?.lastPrice ?? p?.avgPrice
-    return v == null ? '' : v.toFixed(2).replace('.', ',')
-  })
-  const [date, setDate] = useState(editing?.date ?? today())
-  const [submitted, setSubmitted] = useState(false)
+  const [qty, setQty] = useState(() => editing?.qty ?? (item && remainingQty(item) > 0 ? remainingQty(item) : 1))
+  const [price, setPrice] = useState(() => (editing?.unitPrice == null ? '' : editing.unitPrice.toFixed(2).replace('.', ',')))
   const done = () => (back ? open(back) : close())
   if (!p) return null
 
   const priceN = parseNum(price)
-  const unitPrice = priceN == null ? null : mode === 'unit' ? priceN : qty > 0 ? priceN / qty : null
-  const error = qty <= 0 ? 'Informe uma quantidade maior que zero.' : priceN == null || priceN < 0 ? 'Informe o preço pago.' : date > today() ? 'A data não pode ser no futuro.' : null
-  const u = unitInfo(p.unit).value
+  const priceError = price.trim() && (priceN == null || priceN < 0 || priceN > 100000) ? 'Preço inválido.' : null
+  const u = unitInfo(p.unit)
 
   const submit = () => {
-    setSubmitted(true)
-    if (error || unitPrice == null) return
-    if (editing) dispatch({ type: 'purchase/update', id: editing.id, qty, unitPrice })
-    else dispatch({ type: 'purchase/register', id: opId.current, productId, qty, unitPrice, date })
-    toast(editing ? 'Compra atualizada' : `Compra registrada · estoque ${num(p.stock + qty)} ${u}`)
+    if (qty <= 0 || priceError) return
+    if (editing) dispatch({ type: 'purchase/update', id: editing.id, qty, unitPrice: priceN })
+    else dispatch({ type: 'purchase/register', id: opId.current, productId, qty, unitPrice: priceN })
+    toast(editing ? 'Compra atualizada' : `${p.name} comprado · estoque ${num(p.stock + qty)} ${u.short}`)
     done()
   }
   const remove = async () => {
-    if (!editing || !(await confirm({ title: 'Excluir compra?', message: `O estoque de ${p.name} será reduzido em ${qtyLabel(editing.qty, p.unit)} e o preço médio recalculado.`, confirmLabel: 'Excluir', danger: true }))) return
+    if (!editing || !(await confirm({ title: 'Desfazer compra?', message: `O estoque de ${p.name} volta ${qtyLabel(editing.qty, p.unit)}.`, confirmLabel: 'Desfazer', danger: true }))) return
     dispatch({ type: 'purchase/delete', id: editing.id })
-    toast('Compra excluída')
+    toast('Compra desfeita')
+    done()
+  }
+  const skip = () => {
+    dispatch({ type: 'list/skip', productId, skip: true })
+    toast(`${p.name} fora desta compra`)
     done()
   }
 
   return (
     <Sheet
-      title={editing ? 'Editar compra' : `Comprei ${p.name}`}
+      title={p.name}
       onClose={done}
       footer={
-        <div className="flex gap-2">
-          {editing && <Button variant="secondary" onClick={remove} aria-label="Excluir compra"><Trash2 size={18} /></Button>}
-          <Button className="flex-1" onClick={submit} disabled={submitted && !!error}>{editing ? 'Salvar' : 'Registrar compra'}</Button>
-        </div>
+        <Button className="w-full" onClick={submit} disabled={qty <= 0 || !!priceError}>
+          {editing ? 'Salvar' : 'Comprei'}
+        </Button>
       }
     >
       <div className="space-y-4">
-        {item && !editing && (
-          <p className="text-sm text-stone-500">Planejado: {qtyLabel(item.plannedQty, p.unit)}{item.boughtQty > 0 && ` · já comprado ${qtyLabel(item.boughtQty, p.unit)}`}</p>
-        )}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-stone-700">Quantidade comprada ({u})</span>
-          <Stepper value={qty} onChange={setQty} step={p.packSize ?? unitInfo(p.unit).step} label="quantidade comprada" />
+          <span className="text-sm font-medium text-stone-700">Quantidade ({u.label.toLowerCase()})</span>
+          <Stepper value={qty} onChange={setQty} label="quantidade comprada" />
         </div>
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-sm font-medium text-stone-700">Preço pago</span>
-            <div className="flex rounded-lg bg-stone-200 p-0.5 text-xs font-medium">
-              {(['unit', 'total'] as const).map((m) => (
-                <button key={m} type="button" onClick={() => setMode(m)} className={cx('min-h-8 rounded-md px-3', mode === m ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500')}>
-                  {m === 'unit' ? `por ${u}` : 'total'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <NumInput value={price} onChange={setPrice} placeholder="R$ 0,00" autoFocus={!price} />
-          <p className="mt-1 text-xs text-stone-500">
-            {unitPrice != null && qty > 0
-              ? mode === 'unit' ? `Total: ${money(unitPrice * qty)}` : `= ${money(unitPrice)} por ${u}`
-              : p.avgPrice != null ? `Preço médio atual: ${money(p.avgPrice)} por ${u}` : 'Ainda sem preço médio.'}
-          </p>
+        <Field label={`Preço por ${u.label.toLowerCase()} (opcional)`} error={priceError ?? undefined} hint={priceN != null && qty > 0 ? `Total: ${money(priceN * qty)}` : p.avgPrice != null ? `Preço médio: ${money(p.avgPrice)}` : undefined}>
+          <NumInput value={price} onChange={setPrice} placeholder="R$ 0,00" />
+        </Field>
+        <div className="flex gap-2">
+          {editing && <Button variant="secondary" className="flex-1" onClick={remove}><Undo2 size={16} /> Desfazer compra</Button>}
+          {!editing && item && item.boughtQty === 0 && item.status !== 'skipped' && (
+            <Button variant="secondary" className="flex-1" onClick={skip}>Não comprar desta vez</Button>
+          )}
         </div>
-        {!editing && (
-          <Field label="Data da compra">
-            <input type="date" className={inputCls} value={date} max={today()} onChange={(e) => setDate(e.target.value || today())} />
-          </Field>
-        )}
-        {submitted && error && <p className="text-sm text-red-600">{error}</p>}
       </div>
+    </Sheet>
+  )
+}
+
+/**
+ * Sequência de corredores (categorias) de um mercado. Dois jeitos: tocar nos corredores
+ * na ordem em que passa (rápido, para montar do zero) ou subir/descer com setas (ajuste fino).
+ */
+export function MarketOrderSheet({ marketId }: { marketId: string }) {
+  const { state, dispatch, close, toast } = useStore()
+  const market = state.markets.find((m) => m.id === marketId)
+  const [picking, setPicking] = useState<string[] | null>(null)
+  if (!market) return null
+  const cats = orderedCategories(state, market.order)
+  const count = (c: string) => state.products.filter((p) => p.active && catOf(p.category) === c).length
+  const save = (order: string[]) => dispatch({ type: 'market/setOrder', id: market.id, order })
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...cats]
+    ;[next[i], next[i + d]] = [next[i + d], next[i]]
+    save(next)
+  }
+  const finishPicking = () => {
+    if (!picking) return
+    save([...picking, ...cats.filter((c) => !picking.includes(c))])
+    toast(`Ordem do ${market.name} salva`)
+    close()
+  }
+  const btn = 'grid size-11 place-items-center rounded-xl text-stone-600 hover:bg-stone-100 disabled:opacity-20'
+
+  if (picking) {
+    return (
+      <Sheet title={`Ordem do ${market.name}`} onClose={() => setPicking(null)} footer={<Button className="w-full" onClick={finishPicking}>{picking.length === cats.length ? 'Salvar ordem' : 'Salvar (o resto vai no fim)'}</Button>}>
+        <p className="mb-3 text-sm text-stone-500">Toque nos corredores <strong>na ordem em que você passa</strong> pelo {market.name}. Toque de novo para desmarcar.</p>
+        <ul className="grid gap-2">
+          {cats.map((c) => {
+            const pos = picking.indexOf(c)
+            return (
+              <li key={c}>
+                <button
+                  type="button"
+                  onClick={() => setPicking(pos >= 0 ? picking.filter((x) => x !== c) : [...picking, c])}
+                  className={cx('flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left ring-1', pos >= 0 ? 'bg-teal-50 ring-teal-600' : 'bg-white ring-stone-200')}
+                >
+                  <span className={cx('grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold', pos >= 0 ? 'bg-teal-700 text-white' : 'bg-stone-100 text-stone-400')}>{pos >= 0 ? pos + 1 : ''}</span>
+                  <span className="flex-1 font-medium text-stone-900">{c}</span>
+                  <span className="text-xs text-stone-500">{count(c)}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Sheet title={`Corredores · ${market.name}`} onClose={close} footer={<Button className="w-full" onClick={close}>Pronto</Button>}>
+      <Button variant="soft" className="mb-3 w-full" onClick={() => setPicking([])}><ListOrdered size={18} /> Montar ordem tocando</Button>
+      <p className="mb-2 text-sm text-stone-500">Ou ajuste com as setas. A lista de compras segue esta sequência.</p>
+      <ol className="divide-y divide-stone-200 rounded-xl bg-white ring-1 ring-stone-200">
+        {cats.map((c, i) => (
+          <li key={c} className="flex min-h-13 items-center gap-2 pl-3 pr-1">
+            <span className="w-6 text-sm tabular-nums text-stone-400">{i + 1}</span>
+            <span className="flex-1">
+              <span className="block font-medium text-stone-900">{c}</span>
+              <span className="block text-xs text-stone-500">{count(c)} {count(c) === 1 ? 'produto' : 'produtos'}</span>
+            </span>
+            <button type="button" className={btn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Subir ${c}`}><ArrowUp size={18} /></button>
+            <button type="button" className={btn} disabled={i === cats.length - 1} onClick={() => move(i, 1)} aria-label={`Descer ${c}`}><ArrowDown size={18} /></button>
+          </li>
+        ))}
+      </ol>
     </Sheet>
   )
 }
@@ -229,7 +283,7 @@ export function ListSheet({ id }: { id: string }) {
   const list = state.lists.find((l) => l.id === id)
   const purchases = useMemo(() => state.purchases.filter((p) => p.listId === id), [state.purchases, id])
   if (!list) return null
-  const spent = purchases.reduce((s, p) => s + p.qty * p.unitPrice, 0)
+  const spent = purchases.reduce((s, p) => s + p.qty * (p.unitPrice ?? 0), 0)
   const name = (pid: string) => state.products.find((p) => p.id === pid)
   return (
     <Sheet
@@ -289,8 +343,8 @@ export function SettingsSheet() {
   }
   const importData = async (file: File) => {
     try {
-      const data = JSON.parse(await file.text())
-      if (!isValidState(data)) throw new Error()
+      const data = migrate(JSON.parse(await file.text()))
+      if (!data) throw new Error()
       if (!(await confirm({ title: 'Importar backup?', message: 'Os dados atuais deste aparelho serão substituídos pelos do arquivo.', confirmLabel: 'Importar', danger: true }))) return
       dispatch({ type: 'data/replace', state: data })
       toast('Backup importado')
@@ -321,7 +375,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.2 (MVP)</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.3</p>
       </div>
     </Sheet>
   )

@@ -1,224 +1,177 @@
-import { useMemo, useState } from 'react'
-import { Check, ChevronRight, EyeOff, Eye, Lock, Plus, RefreshCw, ShoppingBasket, Trash2, Undo2 } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowDownUp, Check, ChevronDown, ChevronRight, Plus, RotateCcw, ShoppingBasket } from 'lucide-react'
 import { useStore } from '../store'
-import { Badge, Button, Card, Chips, EmptyState, SearchBox, SectionTitle, Stepper, cx, normalize } from '../components/ui'
-import { ItemStatusBadge } from '../components/Sheets'
-import { IconBtn } from '../components/ReminderCard'
-import { dateLabel, itemCost, money, num, qtyLabel, suggestedQty, unitInfo } from '../lib/calc'
+import { Button, EmptyState, Segmented, Stepper, cx } from '../components/ui'
+import { dateLabel, money, num, qtyLabel, remainingQty, uid } from '../lib/calc'
 import { openList } from '../lib/reducer'
-import { listTotals, needsToBuy } from '../lib/selectors'
+import { currentMarket, groupByCategory, listTotals, orderedCategories } from '../lib/selectors'
 import type { ListItem, Product } from '../types'
 
-type Filter = 'all' | 'todo' | 'done' | 'skipped'
+type Row = { item: ListItem; product: Product }
 
+/** Compras: lista montada a partir do estoque, ordenada pelos corredores do mercado escolhido. */
 export function Shopping() {
   const { state, dispatch, open, confirm, toast } = useStore()
   const ol = openList(state)
-  const [q, setQ] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
+  const market = currentMarket(state)
+  if (!ol || !market) return null
 
-  const rows = useMemo(() => {
-    if (!ol) return []
-    return ol.items
-      .map((item) => ({ item, product: state.products.find((p) => p.id === item.productId)! }))
-      .filter((r) => r.product)
-      .filter((r) => normalize(r.product.name + ' ' + r.product.category).includes(normalize(q)))
-      .filter(({ item: i }) =>
-        filter === 'all' ? true : filter === 'todo' ? i.status === 'pending' || i.status === 'partial' : filter === 'done' ? i.status === 'bought' : i.status === 'skipped',
-      )
-      .sort((a, b) => {
-        const rank = (i: ListItem) => ({ partial: 0, pending: 0, bought: 1, skipped: 2 })[i.status]
-        return rank(a.item) - rank(b.item) || (a.product.category || 'zz').localeCompare(b.product.category || 'zz') || a.product.name.localeCompare(b.product.name)
-      })
-  }, [ol, state.products, q, filter])
-
-  if (!ol) {
-    const needs = needsToBuy(state)
-    return (
-      <div className="space-y-4">
-        <EmptyState
-          icon={<ShoppingBasket size={40} />}
-          title="Nenhuma lista aberta"
-          text={
-            needs.length
-              ? `${needs.length} ${needs.length === 1 ? 'produto precisa' : 'produtos precisam'} de reposição. Gere a lista do mês com as quantidades sugeridas — você pode ajustar tudo depois.`
-              : 'Gere a lista do mês. Produtos com consumo configurado entram automaticamente quando o estoque estiver abaixo do ideal.'
-          }
-          action={
-            <Button onClick={() => { dispatch({ type: 'list/generate' }); toast('Lista do mês gerada') }}>
-              <Plus size={18} /> Gerar lista do mês
-            </Button>
-          }
-        />
-        <History />
-      </div>
-    )
-  }
-
+  const rows: Row[] = ol.items
+    .map((item) => ({ item, product: state.products.find((p) => p.id === item.productId)! }))
+    .filter((r) => r.product)
+  const todo = rows.filter((r) => r.item.status === 'pending' || r.item.status === 'partial')
+  const cart = rows.filter((r) => r.item.status === 'bought')
+  const skipped = rows.filter((r) => r.item.status === 'skipped')
+  const groups = groupByCategory(todo, (r) => r.product.category, orderedCategories(state)).map((g) => ({
+    ...g,
+    rows: g.rows.sort((a, b) => a.product.name.localeCompare(b.product.name)),
+  }))
   const t = listTotals(state, ol)
-  const counts = {
-    all: ol.items.length,
-    todo: ol.items.filter((i) => i.status === 'pending' || i.status === 'partial').length,
-    done: ol.items.filter((i) => i.status === 'bought').length,
-    skipped: ol.items.filter((i) => i.status === 'skipped').length,
-  }
 
-  const closeCycle = async () => {
-    const left = counts.todo
+  const finish = async () => {
     const ok = await confirm({
-      title: 'Fechar ciclo de compras?',
+      title: 'Finalizar compras?',
       message:
-        (left ? `${left === 1 ? '1 item não foi comprado' : `${left} itens não foram comprados`} — ${left === 1 ? 'ele volta' : 'eles voltam'} a ser sugerido${left === 1 ? '' : 's'} na próxima lista. ` : '') +
-        'A lista vai para o histórico. Estoque e compras registradas não são alterados.',
-      confirmLabel: 'Fechar ciclo',
+        (todo.length ? `${todo.length} ${todo.length === 1 ? 'item ficou' : 'itens ficaram'} sem comprar e ${todo.length === 1 ? 'continua' : 'continuam'} na próxima lista. ` : '') +
+        'A lista vai para o histórico; o estoque já está atualizado.',
+      confirmLabel: 'Finalizar',
     })
     if (!ok) return
     dispatch({ type: 'list/close' })
-    toast('Ciclo fechado e arquivado no histórico')
+    toast('Compras finalizadas')
   }
 
   return (
-    <div className="space-y-4 md:grid md:grid-cols-[1fr_300px] md:items-start md:gap-6 md:space-y-0">
-      <div className="space-y-3">
-        {/* resumo da lista */}
-        <Card className="md:hidden">
-          <Summary t={t} status={ol.status} />
-        </Card>
-        <div className="flex gap-2">
-          <div className="flex-1"><SearchBox value={q} onChange={setQ} placeholder="Buscar na lista" /></div>
-          <Button variant="secondary" className="px-3" onClick={() => open({ kind: 'pickItem' })} aria-label="Adicionar item à lista"><Plus size={20} /></Button>
-        </div>
-        <Chips<Filter>
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: 'Todos', count: counts.all },
-            { value: 'todo', label: 'A comprar', count: counts.todo },
-            { value: 'done', label: 'Comprados', count: counts.done },
-            { value: 'skipped', label: 'Ignorados', count: counts.skipped },
-          ]}
-        />
-        {ol.items.length === 0 ? (
-          <EmptyState icon={<ShoppingBasket size={36} />} title="Lista vazia" text="Nada precisa de reposição agora. Adicione produtos manualmente pelo botão +." action={<Button variant="soft" onClick={() => open({ kind: 'pickItem' })}><Plus size={18} /> Adicionar item</Button>} />
-        ) : rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-stone-500">Nenhum item neste filtro.</p>
-        ) : (
-          <ul className="space-y-2">
-            {rows.map((r) => <ItemRow key={r.item.productId} item={r.item} product={r.product} />)}
-          </ul>
-        )}
-      </div>
-
-      <div className="space-y-3 md:sticky md:top-6">
-        <Card className="hidden md:block"><Summary t={t} status={ol.status} /></Card>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
-          {ol.status === 'preparing' && (
-            <Button className="col-span-2 md:col-span-1" onClick={() => { dispatch({ type: 'list/start' }); toast('Boas compras!') }}>
-              <ShoppingBasket size={18} /> Iniciar compras
-            </Button>
-          )}
-          <Button variant="secondary" onClick={() => { dispatch({ type: 'list/refresh' }); toast('Sugestões revisadas') }}>
-            <RefreshCw size={16} /> Revisar sugestões
-          </Button>
-          <Button variant="secondary" onClick={closeCycle}><Lock size={16} /> Fechar ciclo</Button>
-        </div>
-        <History />
-      </div>
-    </div>
-  )
-}
-
-function Summary({ t, status }: { t: ReturnType<typeof listTotals>; status: string }) {
-  const pct = t.count ? Math.round((t.done / t.count) * 100) : 0
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-stone-500">Total estimado</span>
-        <Badge tone={status === 'active' ? 'teal' : 'neutral'}>{status === 'active' ? 'Ativa' : 'Em preparação'}</Badge>
-      </div>
-      <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">{t.estimated > 0 || !t.partial ? money(t.estimated) : 'Sem preços ainda'}</p>
-      {t.partial && <p className="text-xs text-amber-700">Total parcial — há itens sem preço informado</p>}
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100">
-        <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="mt-2 flex justify-between text-sm text-stone-600">
-        <span>{t.done} de {t.count} comprados</span>
-        <span>Gasto: <strong className="text-stone-900">{money(t.spent)}</strong></span>
-      </div>
-    </div>
-  )
-}
-
-function ItemRow({ item, product: p }: { item: ListItem; product: Product }) {
-  const { dispatch, open, toast, confirm } = useStore()
-  const sug = suggestedQty(p)
-  const cost = itemCost(item.plannedQty, p.avgPrice)
-  const done = item.status === 'bought'
-  const skipped = item.status === 'skipped'
-  const u = unitInfo(p.unit).value
-
-  const undo = async () => {
-    if (!(await confirm({ title: 'Desfazer compra?', message: `As compras de ${p.name} nesta lista serão excluídas e o estoque reduzido em ${qtyLabel(item.boughtQty, p.unit)}.`, confirmLabel: 'Desfazer', danger: true }))) return
-    dispatch({ type: 'list/undoItem', productId: p.id })
-    toast('Compra desfeita')
-  }
-
-  return (
-    <li className={cx('rounded-2xl border bg-white p-3 transition-opacity', done ? 'border-emerald-200 bg-emerald-50/40' : 'border-stone-200/80', skipped && 'opacity-60')}>
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => (done ? undo() : open({ kind: 'purchase', productId: p.id }))}
-          disabled={skipped}
-          aria-label={done ? `Desfazer compra de ${p.name}` : `Registrar compra de ${p.name}`}
-          className={cx(
-            'grid size-11 shrink-0 place-items-center rounded-full border-2 transition-colors',
-            done ? 'border-emerald-600 bg-emerald-600 text-white' : item.status === 'partial' ? 'border-amber-500 text-amber-600' : 'border-stone-300 text-transparent hover:border-teal-600 hover:text-teal-600',
-          )}
-        >
-          <Check size={20} strokeWidth={3} />
-        </button>
+    <div className="space-y-3 md:max-w-2xl">
+      <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <button type="button" className="min-w-0 text-left" onClick={() => open({ kind: 'product', id: p.id })}>
-              <p className={cx('font-semibold leading-tight text-stone-900', done && 'line-through decoration-stone-400')}>{p.name}</p>
-              <p className="mt-0.5 text-xs text-stone-500">
-                {p.category || 'Sem categoria'} · estoque {num(p.stock)} {u}
-                {sug != null && ` · sugerido ${num(sug)}`}
-              </p>
-            </button>
-            <div className="shrink-0 text-right">
-              <p className="font-semibold tabular-nums text-stone-900">{cost != null ? money(cost) : '—'}</p>
-              <p className={cx('text-xs', p.avgPrice == null ? 'text-amber-700' : 'text-stone-500')}>
-                {p.avgPrice != null ? `${money(p.avgPrice)}/${u}` : 'Preço não informado'}
-              </p>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            {done ? (
-              <p className="text-sm text-emerald-800">Comprado: {qtyLabel(item.boughtQty, p.unit)}</p>
-            ) : skipped ? (
-              <ItemStatusBadge status="skipped" />
-            ) : (
-              <Stepper size="sm" value={item.plannedQty} step={p.packSize ?? unitInfo(p.unit).step} label={p.name} onChange={(n) => dispatch({ type: 'list/setPlanned', productId: p.id, qty: n })} />
-            )}
-            <div className="flex items-center">
-              {item.status === 'partial' && <span className="mr-1"><Badge tone="amber">{num(item.boughtQty)} de {num(item.plannedQty)}</Badge></span>}
-              {done || item.status === 'partial' ? (
-                <IconBtn label="Desfazer compra" onClick={undo}><Undo2 size={18} /></IconBtn>
-              ) : (
-                <>
-                  <IconBtn label={skipped ? 'Voltar a comprar' : 'Ignorar neste ciclo'} onClick={() => { dispatch({ type: 'list/skip', productId: p.id, skip: !skipped }); toast(skipped ? 'Item reativado' : 'Item ignorado neste ciclo') }}>
-                    {skipped ? <Eye size={18} /> : <EyeOff size={18} />}
-                  </IconBtn>
-                  <IconBtn label="Remover da lista" onClick={() => { dispatch({ type: 'list/removeItem', productId: p.id }); toast('Item removido da lista') }}><Trash2 size={18} /></IconBtn>
-                </>
-              )}
-            </div>
-          </div>
+          <Segmented value={market.id} onChange={(id) => dispatch({ type: 'market/select', id })} options={state.markets.map((m) => ({ value: m.id, label: m.name }))} />
         </div>
+        <button type="button" onClick={() => open({ kind: 'marketOrder', id: market.id })} className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-stone-600 ring-1 ring-stone-200" aria-label={`Ordenar corredores do ${market.name}`} title="Ordenar corredores">
+          <ArrowDownUp size={20} />
+        </button>
       </div>
+
+      {rows.length > 0 && (
+        <div className="rounded-2xl bg-white p-3 ring-1 ring-stone-200">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="font-semibold text-stone-900">{todo.length === 0 ? 'Tudo comprado!' : `Faltam ${todo.length}`}</span>
+            <span className="text-stone-500">{cart.length} no carrinho</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-100">
+            <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${t.count ? (t.done / t.count) * 100 : 0}%` }} />
+          </div>
+          {(t.priced > 0 || t.spent > 0) && (
+            <p className="mt-2 text-xs text-stone-500">
+              {t.priced > 0 && <>Estimado {money(t.estimated)}{t.partial && ' (parcial)'}</>}
+              {t.spent > 0 && <> · Gasto {money(t.spent)}</>}
+            </p>
+          )}
+        </div>
+      )}
+
+      {rows.length === 0 && (
+        <EmptyState
+          icon={<ShoppingBasket size={40} />}
+          title="Nada faltando"
+          text="Quando o Tenho ficar abaixo do Preciso no mês, o item aparece aqui sozinho."
+          action={<Button variant="soft" onClick={() => open({ kind: 'pickItem' })}><Plus size={18} /> Adicionar item</Button>}
+        />
+      )}
+
+      {groups.map((g) => (
+        <section key={g.category}>
+          <h2 className="mb-2 mt-4 text-sm font-semibold uppercase tracking-wide text-stone-500">{g.category}</h2>
+          <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-stone-200/80 bg-white">
+            {g.rows.map((r) => <TodoRow key={r.product.id} {...r} />)}
+          </ul>
+        </section>
+      ))}
+
+      {rows.length > 0 && (
+        <Button variant="secondary" className="w-full" onClick={() => open({ kind: 'pickItem' })}><Plus size={18} /> Adicionar item</Button>
+      )}
+
+      {cart.length > 0 && (
+        <Collapsible title={`No carrinho (${cart.length})`} defaultOpen>
+          <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/40">
+            {cart.map((r) => <CartRow key={r.product.id} {...r} listId={ol.id} />)}
+          </ul>
+        </Collapsible>
+      )}
+
+      {skipped.length > 0 && (
+        <Collapsible title={`Fora desta compra (${skipped.length})`}>
+          <ul className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white">
+            {skipped.map(({ product: p }) => (
+              <li key={p.id} className="flex min-h-12 items-center justify-between gap-2 pl-4 pr-2 text-stone-500">
+                {p.name}
+                <Button variant="ghost" className="min-h-10 px-3 text-sm" onClick={() => dispatch({ type: 'list/skip', productId: p.id, skip: false })}>
+                  <RotateCcw size={16} /> Voltar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Collapsible>
+      )}
+
+      {cart.length > 0 && <Button className="w-full" onClick={finish}>Finalizar compras</Button>}
+      <History />
+    </div>
+  )
+}
+
+function TodoRow({ item, product: p }: Row) {
+  const { dispatch, open, toast } = useStore()
+  const buy = () => {
+    dispatch({ type: 'purchase/register', id: uid(), productId: p.id, qty: remainingQty(item) || item.plannedQty || 1, unitPrice: null })
+    toast(`${p.name} no carrinho`)
+  }
+  return (
+    <li className="flex items-center gap-3 px-3 py-2">
+      <button type="button" onClick={buy} aria-label={`Comprei ${p.name}`} className={cx('grid size-11 shrink-0 place-items-center rounded-full border-2 text-transparent transition-colors hover:text-teal-600 active:bg-teal-50', item.status === 'partial' ? 'border-amber-500' : 'border-stone-300')}>
+        <Check size={20} strokeWidth={3} />
+      </button>
+      <button type="button" className="min-w-0 flex-1 py-1 text-left" onClick={() => open({ kind: 'purchase', productId: p.id })}>
+        <span className="block truncate font-semibold text-stone-900">{p.name}</span>
+        <span className="block text-xs text-stone-500">
+          tem {num(p.stock)} · {item.status === 'partial' ? `pegou ${num(item.boughtQty)}` : p.unit === 'pct' ? 'pacote' : 'unidade'}
+          {p.avgPrice != null && ` · ${money(p.avgPrice)}`}
+        </span>
+      </button>
+      <Stepper size="sm" value={item.plannedQty} label={p.name} onChange={(n) => dispatch({ type: 'list/setPlanned', productId: p.id, qty: n })} />
     </li>
+  )
+}
+
+function CartRow({ item, product: p, listId }: Row & { listId: string }) {
+  const { state, dispatch, open, toast } = useStore()
+  const mine = state.purchases.filter((x) => x.listId === listId && x.productId === p.id)
+  const spent = mine.reduce((t, x) => t + (x.unitPrice != null ? x.qty * x.unitPrice : 0), 0)
+  const last = mine.at(-1)
+  return (
+    <li className="flex items-center gap-3 px-3 py-2">
+      <button type="button" onClick={() => { dispatch({ type: 'list/undoItem', productId: p.id }); toast('Voltou para a lista') }} aria-label={`Desfazer compra de ${p.name}`} className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
+        <Check size={20} strokeWidth={3} />
+      </button>
+      <button type="button" className="min-w-0 flex-1 py-1 text-left" onClick={() => last && open({ kind: 'purchase', productId: p.id, purchaseId: last.id })}>
+        <span className="block truncate font-medium text-stone-500 line-through decoration-stone-300">{p.name}</span>
+        <span className="block text-xs text-stone-500">{qtyLabel(item.boughtQty, p.unit)}{spent > 0 ? ` · ${money(spent)}` : ' · toque para pôr o preço'}</span>
+      </button>
+    </li>
+  )
+}
+
+function Collapsible({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [openState, setOpen] = useState(!!defaultOpen)
+  return (
+    <section className="pt-2">
+      <button type="button" onClick={() => setOpen(!openState)} className="flex min-h-11 w-full items-center justify-between text-sm font-semibold uppercase tracking-wide text-stone-500">
+        {title}
+        <ChevronDown size={18} className={cx('transition-transform', openState && 'rotate-180')} />
+      </button>
+      {openState && children}
+    </section>
   )
 }
 
@@ -227,8 +180,7 @@ function History() {
   const lists = state.lists.filter((l) => l.status === 'closed' || l.status === 'archived')
   if (!lists.length) return null
   return (
-    <div>
-      <SectionTitle>Histórico</SectionTitle>
+    <Collapsible title="Histórico">
       <ul className="divide-y divide-stone-200 rounded-2xl border border-stone-200/80 bg-white">
         {lists.map((l) => {
           const t = listTotals(state, l)
@@ -236,18 +188,16 @@ function History() {
             <li key={l.id}>
               <button type="button" className="flex min-h-14 w-full items-center gap-3 px-4 text-left" onClick={() => open({ kind: 'list', id: l.id })}>
                 <span className="flex-1">
-                  <span className="block font-medium text-stone-900">{l.name}</span>
-                  <span className="block text-xs text-stone-500">
-                    {l.status === 'archived' ? 'Arquivada' : 'Fechada'} {l.closedAt && `em ${dateLabel(l.closedAt.slice(0, 10))}`} · {t.done}/{t.count} itens
-                  </span>
+                  <span className="block font-medium text-stone-900">{l.closedAt ? `Compras de ${dateLabel(l.closedAt.slice(0, 10))}` : l.name}</span>
+                  <span className="block text-xs text-stone-500">{t.done} de {t.count} itens</span>
                 </span>
-                <span className="text-sm font-semibold tabular-nums">{money(t.spent)}</span>
+                {t.spent > 0 && <span className="text-sm font-semibold tabular-nums">{money(t.spent)}</span>}
                 <ChevronRight size={16} className="text-stone-400" />
               </button>
             </li>
           )
         })}
       </ul>
-    </div>
+    </Collapsible>
   )
 }

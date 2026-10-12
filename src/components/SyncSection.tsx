@@ -60,6 +60,9 @@ export function SyncSection() {
             <p className="truncate text-xs text-stone-500">{sync.cfg.repo}{sync.cfg.device && ` · ${sync.cfg.device}`}</p>
             <p className="mt-1 text-xs text-stone-500">Última sincronização: {timeLabel(sync.lastSync)}</p>
             {sync.error && <p className="mt-1 text-xs text-red-600">{sync.error}</p>}
+            <p className="mt-2 text-xs text-stone-500">
+              Sincroniza: produtos, estoque, listas, compras, lembretes, mercados, ordem dos corredores e categorias. Só deste celular: o mercado selecionado em Compras.
+            </p>
           </div>
         </div>
         <InviteBox />

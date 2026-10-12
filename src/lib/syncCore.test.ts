@@ -93,6 +93,32 @@ describe('sincronização entre dois celulares', () => {
     }
   })
 
+  it('ordem dos corredores, mercados e categorias chegam ao outro celular', async () => {
+    const remote = fakeRemote()
+    const a = device(remote.api, syncList(initialState()))
+    await a.sync()
+    const b = device(remote.api, a.state)
+    await b.sync()
+
+    const giga = a.state.markets.find((m) => m.name === 'Giga')!
+    a.act({ type: 'market/setOrder', id: giga.id, order: ['Limpeza', 'Padaria', ...giga.order.filter((c) => c !== 'Limpeza' && c !== 'Padaria')] })
+    a.act({ type: 'market/add', id: 'assai', name: 'Assaí' })
+    a.act({ type: 'category/add', name: 'Pet' })
+    a.act({ type: 'category/remove', name: 'Hortifruti', withItems: false })
+    b.act({ type: 'reminder/set', productId: byName(b.state, 'Creme dental').id, everyMonths: 2, nextCheck: '2026-12-01' })
+    await a.sync()
+    await b.sync()
+    await a.sync()
+
+    for (const s of [a.state, b.state]) {
+      expect(s.markets.find((m) => m.name === 'Giga')!.order.slice(0, 2)).toEqual(['Limpeza', 'Padaria'])
+      expect(s.markets.map((m) => m.name)).toContain('Assaí')
+      expect(s.categories).toContain('Pet')
+      expect(s.categories).not.toContain('Hortifruti')
+      expect(byName(s, 'Creme dental').reminder?.everyMonths).toBe(2)
+    }
+  })
+
   it('sem mudanças não grava de novo', async () => {
     const remote = fakeRemote()
     const a = device(remote.api, syncList(initialState()))

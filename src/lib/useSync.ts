@@ -84,17 +84,19 @@ export function useSync(state: AppState, dispatch: (a: Action) => void) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg])
 
-  // ao abrir, ao voltar para o app, ao reconectar e a cada minuto com o app aberto
+  // ao abrir, ao voltar para o app, ao reconectar e a cada 20 s com o app aberto
   useEffect(() => {
     if (!cfg) return
     void run()
     const onVisible = () => document.visibilityState === 'visible' && void run()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onVisible)
-    const t = setInterval(onVisible, 60_000)
+    window.addEventListener('focus', onVisible)
+    const t = setInterval(onVisible, 20_000)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onVisible)
+      window.removeEventListener('focus', onVisible)
       clearInterval(t)
     }
   }, [cfg, run])

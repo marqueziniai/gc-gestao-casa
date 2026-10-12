@@ -47,7 +47,8 @@ Sem banco de dados: os dados ficam em um único arquivo `dados.json` no reposit�
    - O link leva o token criptografado com a senha da casa (AES-GCM + PBKDF2) depois do `#`, parte que nunca é enviada a servidor algum. A senha não fica gravada em lugar nenhum.
 
 **Como funciona:**
-- **Quando sincroniza:** baixa ao abrir, ao voltar para o app e a cada minuto. Envia ~2,5 s depois de cada alteração.
+- **O que sincroniza:** produtos (estoque, necessidade do mês, unidade, preço, categoria, lembretes), listas, compras, mercados, ordem dos corredores e categorias. Só o mercado selecionado em Compras é de cada aparelho.
+- **Quando sincroniza:** baixa ao abrir, ao voltar para o app e a cada 20 s com o app aberto. Envia ~2,5 s depois de cada alteração.
 - **Edição nos dois celulares:** uma junção de três vias (`src/lib/merge.ts`) combina as alterações por registro e por campo. Se cada um marcar itens diferentes da lista, as duas marcações ficam. Se o GitHub mudar entre baixar e enviar, ele recusa a gravação e o app junta de novo antes de tentar outra vez.
 - **Histórico:** cada sincronização é um commit, então dá para voltar versões pelo histórico do repositório.
 - **Segurança:** o token fica só no navegador de cada celular e enxerga apenas o repositório de dados.

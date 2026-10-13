@@ -22,6 +22,7 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
   const [qty, setQty] = useState(() => editing?.qty ?? (item && remainingQty(item) > 0 ? remainingQty(item) : 1))
   const [price, setPrice] = useState(() => (editing?.unitPrice == null ? '' : editing.unitPrice.toFixed(2).replace('.', ',')))
   const [name, setName] = useState(p?.name ?? '')
+  const [mode, setMode] = useState<'unit' | 'total'>('unit')
   const done = () => (back ? open(back) : close())
   if (!p) return null
 
@@ -38,12 +39,15 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
   const priceN = parseNum(price)
   const priceError = price.trim() && (priceN == null || priceN < 0 || priceN > 100000) ? 'Preço inválido.' : null
   const u = unitInfo(p.unit)
+  // o que é gravado é sempre o preço por unidade/pacote; "total pago" é dividido pela quantidade
+  const unitPrice = priceN == null ? null : mode === 'unit' ? priceN : qty > 0 ? Math.round((priceN / qty) * 10000) / 10000 : null
+  const total = unitPrice != null ? unitPrice * qty : null
 
   const submit = () => {
     if (qty <= 0 || priceError || (renamed && nameError)) return
     saveName(true)
-    if (editing) dispatch({ type: 'purchase/update', id: editing.id, qty, unitPrice: priceN })
-    else dispatch({ type: 'purchase/register', id: opId.current, productId, qty, unitPrice: priceN })
+    if (editing) dispatch({ type: 'purchase/update', id: editing.id, qty, unitPrice })
+    else dispatch({ type: 'purchase/register', id: opId.current, productId, qty, unitPrice })
     toast(editing ? 'Compra atualizada' : `${name.trim()} comprado · estoque ${num(p.stock + qty)} ${u.short}`)
     done()
   }
@@ -92,9 +96,28 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
           <span className="text-sm font-medium text-stone-700">Quantidade ({u.label.toLowerCase()})</span>
           <Stepper value={qty} onChange={setQty} label="quantidade comprada" />
         </div>
-        <Field label={`Preço por ${u.label.toLowerCase()} (opcional)`} error={priceError ?? undefined} hint={priceN != null && qty > 0 ? `Total: ${money(priceN * qty)}` : p.avgPrice != null ? `Preço médio: ${money(p.avgPrice)}` : undefined}>
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-stone-700">Preço (opcional)</span>
+            <div className="flex rounded-lg bg-stone-200 p-0.5 text-xs font-medium" role="radiogroup" aria-label="Tipo de preço">
+              {(['unit', 'total'] as const).map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={cx('min-h-8 rounded-md px-3', mode === m ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500')}>
+                  {m === 'unit' ? `por ${u.label.toLowerCase()}` : 'total pago'}
+                </button>
+              ))}
+            </div>
+          </div>
           <NumInput value={price} onChange={setPrice} placeholder="R$ 0,00" />
-        </Field>
+          {priceError ? (
+            <p className="mt-1 text-xs text-red-600">{priceError}</p>
+          ) : total != null && unitPrice != null ? (
+            <p className="mt-1 rounded-lg bg-teal-50 px-2 py-1 text-sm text-teal-900">
+              {num(qty)} {u.short} × {money(unitPrice)} = <strong>{money(total)}</strong>
+            </p>
+          ) : (
+            p.avgPrice != null && <p className="mt-1 text-xs text-stone-500">Preço médio: {money(p.avgPrice)} por {u.label.toLowerCase()}</p>
+          )}
+        </div>
         <div className="flex gap-2">
           {editing && <Button variant="secondary" className="flex-1" onClick={remove}><Undo2 size={16} /> Desfazer compra</Button>}
           {!editing && item && item.boughtQty === 0 && item.status !== 'skipped' && (
@@ -334,7 +357,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.8</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.9</p>
       </div>
     </Sheet>
   )

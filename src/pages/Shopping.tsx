@@ -137,8 +137,12 @@ function TodoRow({ item, product: p }: Row) {
         <span className="block text-xs text-stone-500">
           tem {num(p.stock)} · mês {num(p.monthlyConsumption ?? 0)} {p.unit === 'pct' ? 'pct' : 'un'}
           {item.status === 'partial' && ` · pegou ${num(item.boughtQty)}`}
-          {p.avgPrice != null && ` · ${money(p.avgPrice)}`}
         </span>
+        {p.avgPrice != null && (
+          <span className="block text-xs text-stone-500">
+            {num(item.plannedQty)} × {money(p.avgPrice)} = <strong className="font-semibold text-stone-700">{money(item.plannedQty * p.avgPrice)}</strong>
+          </span>
+        )}
       </button>
       <Stepper size="sm" value={item.plannedQty} label={p.name} onChange={(n) => dispatch({ type: 'list/setPlanned', productId: p.id, qty: n })} />
     </li>
@@ -148,8 +152,16 @@ function TodoRow({ item, product: p }: Row) {
 function CartRow({ item, product: p, listId }: Row & { listId: string }) {
   const { state, dispatch, open, toast } = useStore()
   const mine = state.purchases.filter((x) => x.listId === listId && x.productId === p.id)
-  const spent = mine.reduce((t, x) => t + (x.unitPrice != null ? x.qty * x.unitPrice : 0), 0)
+  const priced = mine.filter((x) => x.unitPrice != null)
+  const spent = priced.reduce((t, x) => t + x.qty * x.unitPrice!, 0)
   const last = mine.at(-1)
+  // uma compra com preço: mostra a conta; várias: só o total
+  const detail =
+    priced.length === 0
+      ? `${qtyLabel(item.boughtQty, p.unit)} · toque para pôr o preço`
+      : priced.length === 1 && mine.length === 1
+        ? `${qtyLabel(priced[0].qty, p.unit)} × ${money(priced[0].unitPrice!)} = ${money(spent)}`
+        : `${qtyLabel(item.boughtQty, p.unit)} · ${money(spent)}`
   return (
     <li className="flex items-center gap-3 px-3 py-2">
       <button type="button" onClick={() => { dispatch({ type: 'list/undoItem', productId: p.id }); toast('Voltou para a lista') }} aria-label={`Desfazer compra de ${p.name}`} className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
@@ -157,7 +169,7 @@ function CartRow({ item, product: p, listId }: Row & { listId: string }) {
       </button>
       <button type="button" className="min-w-0 flex-1 py-1 text-left" onClick={() => last && open({ kind: 'purchase', productId: p.id, purchaseId: last.id })}>
         <span className="block truncate font-medium text-stone-500 line-through decoration-stone-300">{p.name}</span>
-        <span className="block text-xs text-stone-500">{qtyLabel(item.boughtQty, p.unit)}{spent > 0 ? ` · ${money(spent)}` : ' · toque para pôr o preço'}</span>
+        <span className="block text-xs text-stone-500">{detail}</span>
       </button>
     </li>
   )

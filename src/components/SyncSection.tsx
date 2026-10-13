@@ -79,7 +79,7 @@ export function SyncSection() {
   return (
     <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
       <div className="flex items-center gap-2">
-        <CloudOff size={20} className="text-stone-400" />
+        <CloudOff size={20} className="text-red-600" />
         <p className="font-semibold text-stone-900">Sincronizar entre celulares</p>
       </div>
       <p className="mt-1 text-sm text-stone-500">Os dados ficam num repositório <strong>privado</strong> do GitHub. Cole o mesmo token nos dois celulares.</p>
@@ -200,6 +200,7 @@ function InviteBox() {
 }
 
 export function SyncIcon({ status, size = 20 }: { status: SyncStatus; size?: number }) {
+  if (status === 'off') return <CloudOff size={size} className="shrink-0 text-red-600" aria-label="Não sincronizado" />
   if (status === 'syncing') return <RefreshCw size={size} className="shrink-0 animate-spin text-teal-700" aria-label="Sincronizando" />
   if (status === 'error' || status === 'offline') return <CloudOff size={size} className="shrink-0 text-amber-600" aria-label="Sem sincronizar" />
   return <Cloud size={size} className="shrink-0 text-teal-700" aria-label="Sincronizado" />

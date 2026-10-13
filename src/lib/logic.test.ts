@@ -147,3 +147,23 @@ describe('mercados e categorias', () => {
     expect(s.markets.some((m) => m.id === s.marketId)).toBe(true)
   })
 })
+
+describe('contas da lista', () => {
+  it('estimado e gasto multiplicam quantidade × preço', async () => {
+    const { listTotals } = await import('./selectors')
+    // 3 planejados × R$ 2,50 (preço médio) = R$ 7,50 estimado
+    let s = syncList(withProduct({ stock: 0, safetyStock: 0, avgPrice: 2.5 }))
+    expect(listTotals(s, openList(s)!).estimated).toBe(7.5)
+    // compra de 3 a R$ 2,00 cada = R$ 6,00 gasto (e não R$ 2,00)
+    s = reducer(s, { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 3, unitPrice: 2 })
+    const t = listTotals(s, openList(s)!)
+    expect(t.spent).toBe(6)
+    expect(t.done).toBe(1)
+  })
+  it('compra sem preço não entra no gasto', async () => {
+    const { listTotals } = await import('./selectors')
+    let s = syncList(withProduct({ stock: 0, safetyStock: 0 }))
+    s = reducer(s, { type: 'purchase/register', id: 'c1', productId: 'p1', qty: 3, unitPrice: null })
+    expect(listTotals(s, openList(s)!).spent).toBe(0)
+  })
+})

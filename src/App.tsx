@@ -28,7 +28,7 @@ const fromHash = (): Tab => {
 }
 
 function Shell() {
-  const { state, modal, open, sync } = useStore()
+  const { state, modal, open, sync, toast } = useStore()
   const [tab, setTab] = useState<Tab>(fromHash)
   // teclado aberto no celular: esconde barra inferior e botão + para não cobrirem o campo
   const typing = useTyping()
@@ -57,6 +57,11 @@ function Shell() {
     lembretes: reminderBuckets(state).overdue.length,
   }
   const current = TABS.find((t) => t.id === tab)!
+  // atualizar = recarregar o app: pega a versão nova publicada e, se conectado, baixa os dados na abertura
+  const refresh = () => {
+    toast('Atualizando…')
+    setTimeout(() => location.reload(), 150)
+  }
   // inclusão rápida: nas compras, escolhe um produto (ou cadastra) para a lista
   const quickAdd = () => open(tab === 'compras' ? { kind: 'pickItem' } : { kind: 'product' })
 
@@ -64,10 +69,10 @@ function Shell() {
     <div className="min-h-dvh bg-stone-100 text-stone-900 md:flex">
       {/* navegação lateral (desktop) */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-stone-200 bg-white px-3 py-5 md:flex">
-        <div className="mb-6 flex items-center gap-2 px-2">
+        <button type="button" onClick={refresh} className="mb-6 flex items-center gap-2 rounded-xl px-2 py-1 text-left hover:bg-stone-100" title="Atualizar">
           <img src="./icon.svg" alt="" className="size-8" />
           <span className="font-bold tracking-tight">GC - Gestão Casa</span>
-        </div>
+        </button>
         <Button className="mb-4" onClick={quickAdd}><Plus size={18} /> {tab === 'compras' ? 'Adicionar item' : 'Novo produto'}</Button>
         <nav className="space-y-1">
           {TABS.map((t) => (
@@ -91,19 +96,23 @@ function Shell() {
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 border-b border-stone-200/70 bg-stone-100/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur md:px-8 md:pt-6">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
-            <div className="min-w-0">
+            <button type="button" onClick={refresh} className="-ml-1 min-w-0 rounded-xl px-1 text-left active:bg-stone-200" aria-label="Atualizar" title="Toque para atualizar">
               <p className="text-xs font-medium uppercase tracking-wide text-stone-500 md:hidden">GC - Gestão Casa</p>
               <h1 className="truncate text-2xl font-bold tracking-tight">{current.title}</h1>
-            </div>
+            </button>
             <div className="flex items-center gap-1">
               {tab === 'lembretes' && (
                 <Button variant="soft" className="min-h-10 px-3 text-sm" onClick={() => open({ kind: 'reminder' })}><Plus size={16} /> Lembrete</Button>
               )}
-              {sync.cfg && (
-                <button type="button" onClick={() => (sync.status === 'idle' ? void sync.syncNow() : open({ kind: 'settings' }))} className="grid size-11 place-items-center rounded-full hover:bg-stone-200" aria-label="Sincronização" title={sync.error ?? 'Sincronizado'}>
-                  <SyncIcon status={sync.status} />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => (sync.status === 'idle' ? void sync.syncNow() : open({ kind: 'settings' }))}
+                className="grid size-11 place-items-center rounded-full hover:bg-stone-200"
+                aria-label={sync.cfg ? 'Sincronização' : 'Não sincronizado — conectar'}
+                title={!sync.cfg ? 'Não sincronizado' : sync.error ?? 'Sincronizado'}
+              >
+                <SyncIcon status={sync.status} />
+              </button>
               <button type="button" onClick={() => open({ kind: 'settings' })} className="grid size-11 place-items-center rounded-full text-stone-500 hover:bg-stone-200 md:hidden" aria-label="Ajustes">
                 <Settings size={20} />
               </button>

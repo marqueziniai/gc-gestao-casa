@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, Cloud, CloudOff, Copy, RefreshCw, Share2, UserPlus } from 'lucide-react'
+import { ChevronDown, ClipboardPaste, Cloud, CloudOff, Copy, RefreshCw, Share2, UserPlus } from 'lucide-react'
 import { useStore } from '../store'
 import { Button, Field, cx, inputCls } from './ui'
 import { SyncError } from '../lib/github'
-import { createInvite, inviteLink } from '../lib/invite'
+import { createInvite, extractInviteCode, inviteLink } from '../lib/invite'
 import type { SyncStatus } from '../lib/useSync'
 
 const DEFAULT_REPO = 'marqueziniai/gc-gestao-casa-dados'
@@ -83,7 +83,10 @@ export function SyncSection() {
         <CloudOff size={20} className="text-red-600" />
         <p className="font-semibold text-stone-900">Sincronizar entre celulares</p>
       </div>
-      <p className="mt-1 text-sm text-stone-500">Os dados ficam num repositório <strong>privado</strong> do GitHub. Cole o mesmo token nos dois celulares.</p>
+      <p className="mt-1 text-sm text-stone-500">Os dados ficam num repositório <strong>privado</strong> do GitHub.</p>
+
+      <PasteInvite />
+      <p className="mt-3 text-center text-xs font-medium uppercase tracking-wide text-stone-400">ou conecte com o token</p>
 
       {needsChoice ? (
         <div className="mt-3 space-y-2">
@@ -124,6 +127,51 @@ export function SyncSection() {
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * Entrar com um link de convite colado. Necessário no iPhone: o app da tela de início
+ * não recebe o link aberto pelo WhatsApp (ele abre no Safari, que guarda dados à parte).
+ */
+function PasteInvite() {
+  const { open } = useStore()
+  const [show, setShow] = useState(false)
+  const [text, setText] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+
+  const go = (value: string) => {
+    const code = extractInviteCode(value)
+    if (!code) return setErr('Isso não parece um link de convite. Copie o link inteiro que recebeu.')
+    setErr(null)
+    open({ kind: 'join', code })
+  }
+  const paste = async () => {
+    try {
+      const v = await navigator.clipboard.readText()
+      setText(v)
+      go(v)
+    } catch {
+      setShow(true)
+      setErr('Não consegui ler a área de transferência. Toque e segure no campo abaixo e escolha Colar.')
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl bg-teal-50 p-3">
+      <p className="text-sm text-teal-900"><strong>Recebeu um link de convite?</strong> Copie o link no WhatsApp e toque abaixo.</p>
+      <Button className="w-full" onClick={() => void paste()}><ClipboardPaste size={18} /> Colar link do convite</Button>
+      {!show && (
+        <button type="button" className="min-h-9 w-full text-xs text-teal-800 underline" onClick={() => setShow(true)}>Prefiro colar manualmente</button>
+      )}
+      {show && (
+        <div className="flex gap-2">
+          <input className={inputCls} value={text} onChange={(e) => setText(e.target.value)} placeholder="Cole o link aqui" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <Button variant="secondary" className="px-3" onClick={() => go(text)} disabled={!text.trim()}>OK</Button>
+        </div>
+      )}
+      {err && <p className="text-xs text-red-600">{err}</p>}
+    </div>
   )
 }
 
@@ -210,6 +258,7 @@ function InviteBox() {
             <Button variant="secondary" className="flex-1 text-sm" onClick={() => void copy()}><Copy size={16} /> Copiar</Button>
           </div>
           <p className="text-xs text-stone-500">Dica: diga a senha pessoalmente, não junto com o link.</p>
+          <p className="text-xs text-stone-500">No iPhone com o app na tela de início: copie o link e, no app, vá em Ajustes → <strong>Colar link do convite</strong>.</p>
         </>
       ) : (
         <>

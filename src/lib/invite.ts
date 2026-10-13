@@ -49,4 +49,12 @@ export async function openInvite(code: string, password: string): Promise<Invite
 }
 
 export const INVITE_PREFIX = '#convite='
+
+/** Aceita o link inteiro (como vem do WhatsApp) ou só o código. null se não parecer um convite. */
+export function extractInviteCode(text: string): string | null {
+  const t = text.trim()
+  const i = t.indexOf(INVITE_PREFIX)
+  const code = (i >= 0 ? t.slice(i + INVITE_PREFIX.length) : t).split(/\s/)[0]
+  return /^1\.[\w-]+\.[\w-]+\.[\w-]+$/.test(code) ? code : null
+}
 export const inviteLink = (code: string) => `${location.origin}${location.pathname}${INVITE_PREFIX}${code}`

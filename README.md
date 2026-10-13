@@ -57,6 +57,7 @@ Sem banco de dados: os dados ficam em um único arquivo `dados.json` no reposit�
    - No 1º celular os dados dele vão para o GitHub.
 3. Ainda no 1º celular: **Ajustes → Convidar outro celular**, crie a **senha da casa** e compartilhe o link.
    - No 2º celular, abra o link e digite a senha da casa. Pronto.
+   - **iPhone com o app na tela de início:** o ícone da tela de início não recebe links (eles abrem no Safari, que guarda dados à parte). Copie o link e, no app, use **Ajustes → Colar link do convite**.
    - O link leva o token criptografado com a senha da casa (AES-GCM + PBKDF2) depois do `#`, parte que nunca é enviada a servidor algum. A senha não fica gravada em lugar nenhum.
 
 **Como funciona:**

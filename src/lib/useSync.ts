@@ -145,7 +145,15 @@ export function useSync(state: AppState, dispatch: (a: Action) => void) {
     setError(null)
   }
 
-  return { cfg, status, error, lastSync, connect, disconnect, syncNow: run }
+  /** Nome deste aparelho (aparece no histórico e nas versões do GitHub). */
+  const rename = (device: string) => {
+    if (!cfg) return
+    const next = { ...cfg, device: device.trim() }
+    write(CFG_KEY, next)
+    setCfg(next)
+  }
+
+  return { cfg, status, error, lastSync, connect, disconnect, rename, syncNow: run }
 }
 
 export type SyncApi = ReturnType<typeof useSync>

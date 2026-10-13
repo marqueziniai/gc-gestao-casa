@@ -74,6 +74,17 @@ export interface Purchase {
   createdAt: string
 }
 
+/** Uma linha do histórico de alterações: o que foi feito, por quem e quando. */
+export interface LogEntry {
+  id: string
+  at: string
+  /** Nome do aparelho que fez a alteração. */
+  by: string
+  text: string
+  /** Agrupa ajustes seguidos do mesmo controle numa linha só. */
+  key?: string
+}
+
 /** Mercado com a sequência de categorias (corredores) em que é percorrido. */
 export interface Market {
   id: string
@@ -90,5 +101,7 @@ export interface AppState {
   categories: string[]
   markets: Market[]
   marketId: string
+  /** Histórico de alterações (mais recentes primeiro), compartilhado entre os aparelhos. */
+  log: LogEntry[]
   demo: boolean
 }

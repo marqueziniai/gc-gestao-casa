@@ -46,7 +46,12 @@ export function migrate(d: unknown): AppState | null {
 
 /** Dados anteriores à lista global de categorias: deriva das ordens dos mercados e dos produtos. */
 function withCategories(s: AppState): AppState {
-  if (Array.isArray(s.categories) && s.categories.length) return s
+  const log = Array.isArray(s.log) ? s.log : []
+  // cobertura, reserva e embalagem saíram da tela: zerá-los evita "falta comprar" que o usuário não consegue explicar
+  const products = s.products.map((p) =>
+    p.coverageMonths === 1 && p.safetyStock === 0 && p.packSize == null ? p : { ...p, coverageMonths: 1, safetyStock: 0, packSize: null },
+  )
+  if (Array.isArray(s.categories) && s.categories.length) return { ...s, products, log }
   const all = [...DEFAULT_CATEGORY_ORDER, ...s.markets.flatMap((m) => m.order), ...s.products.map((p) => p.category.trim())]
-  return { ...s, categories: [...new Set(all.filter(Boolean))] }
+  return { ...s, products, log, categories: [...new Set(all.filter(Boolean))] }
 }

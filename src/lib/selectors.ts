@@ -1,27 +1,68 @@
-import type { AppState, ShoppingList } from '../types'
+import type { AppState, ListItem, ShoppingList } from '../types'
 import { reminderView, round, today } from './calc'
 
 /** Grupo exibido para produtos sem categoria; não é uma categoria cadastrada. */
 export const NONE = 'Sem categoria'
 export const catOf = (c: string) => c.trim() || NONE
 
+export interface ItemMoney {
+  /** Preço por unidade/pacote usado na estimativa (preço médio do produto). */
+  unitPrice: number | null
+  /** Valor da linha: o que já foi pago + o que falta comprar × preço unitário. */
+  total: number | null
+  /** Já pago neste item (compras com preço). */
+  spent: number
+  /** Ainda a gastar: quantidade que falta × preço unitário. */
+  toSpend: number | null
+}
+
+/**
+ * Valor de um item da lista. Comprado com preço vale o que foi pago; o que ainda
+ * falta (ou foi comprado sem preço) vale quantidade × preço médio. Sem preço médio,
+ * essa parte fica desconhecida (null).
+ */
+export function itemMoney(s: AppState, listId: string, item: ListItem): ItemMoney {
+  const p = s.products.find((x) => x.id === item.productId)
+  const unitPrice = p?.avgPrice ?? null
+  const mine = s.purchases.filter((x) => x.listId === listId && x.productId === item.productId)
+  let spent = 0
+  let unpricedQty = 0
+  for (const x of mine) {
+    if (x.unitPrice != null) spent += x.qty * x.unitPrice
+    else unpricedQty += x.qty
+  }
+  const remaining = item.status === 'skipped' ? 0 : Math.max(0, item.plannedQty - item.boughtQty)
+  const unknownQty = remaining + unpricedQty
+  const toSpend = remaining === 0 ? 0 : unitPrice == null ? null : remaining * unitPrice
+  const total = unknownQty === 0 ? spent : unitPrice == null ? null : spent + unknownQty * unitPrice
+  return { unitPrice, total: total == null ? null : round(total, 2), spent: round(spent, 2), toSpend: toSpend == null ? null : round(toSpend, 2) }
+}
+
+/**
+ * Totais da lista:
+ * - estimated: soma do valor de cada item (pago + falta × preço médio)
+ * - spent: soma do que já foi pago (compras com preço)
+ * - toSpend: soma do que ainda falta comprar × preço médio
+ * - missing: itens cujo valor não dá para estimar (sem preço) → estimativa parcial
+ */
 export function listTotals(s: AppState, list: ShoppingList) {
   let estimated = 0
-  let priced = 0
+  let spent = 0
+  let toSpend = 0
+  let missing = 0
   let count = 0
   let done = 0
   for (const i of list.items) {
+    const m = itemMoney(s, list.id, i)
+    spent += m.spent // inclui o que foi pago em itens depois tirados da compra
     if (i.status === 'skipped') continue
     count++
     if (i.status === 'bought') done++
-    const p = s.products.find((x) => x.id === i.productId)
-    if (p?.avgPrice != null) {
-      priced++
-      estimated += i.plannedQty * p.avgPrice
-    }
+    if (m.total == null) missing++
+    else estimated += m.total
+    if (m.toSpend != null) toSpend += m.toSpend
   }
-  const spent = s.purchases.filter((p) => p.listId === list.id).reduce((t, p) => t + p.qty * (p.unitPrice ?? 0), 0)
-  return { estimated: round(estimated, 2), priced, partial: priced < count, spent: round(spent, 2), count, done }
+  return { estimated: round(estimated, 2), spent: round(spent, 2), toSpend: round(toSpend, 2), missing, priced: count - missing, partial: missing > 0, count, done }
 }
 
 export const currentMarket = (s: AppState) => s.markets.find((m) => m.id === s.marketId) ?? s.markets[0]

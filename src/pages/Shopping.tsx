@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { Button, EmptyState, Segmented, Stepper, cx } from '../components/ui'
 import { dateLabel, money, num, qtyLabel, remainingQty, uid } from '../lib/calc'
 import { openList } from '../lib/reducer'
-import { currentMarket, groupByCategory, listTotals, orderedCategories } from '../lib/selectors'
+import { currentMarket, groupByCategory, itemMoney, listTotals, orderedCategories } from '../lib/selectors'
 import type { ListItem, Product } from '../types'
 
 type Row = { item: ListItem; product: Product }
@@ -61,11 +61,28 @@ export function Shopping() {
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-100">
             <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${t.count ? (t.done / t.count) * 100 : 0}%` }} />
           </div>
-          {(t.priced > 0 || t.spent > 0) && (
-            <p className="mt-2 text-xs text-stone-500">
-              {t.priced > 0 && <>Estimado {money(t.estimated)}{t.partial && ' (parcial)'}</>}
-              {t.spent > 0 && <> · Gasto {money(t.spent)}</>}
-            </p>
+          {t.priced > 0 || t.spent > 0 ? (
+            <>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                {[
+                  ['Estimado', t.estimated],
+                  ['Gasto', t.spent],
+                  ['Falta gastar', t.toSpend],
+                ].map(([label, value]) => (
+                  <div key={label as string} className="rounded-xl bg-stone-50 px-1 py-2">
+                    <span className="block text-sm font-bold tabular-nums text-stone-900">{money(value as number)}</span>
+                    <span className="block text-[11px] text-stone-500">{label}</span>
+                  </div>
+                ))}
+              </div>
+              {t.partial && (
+                <p className="mt-2 text-xs text-amber-700">
+                  Estimativa parcial: {t.missing} {t.missing === 1 ? 'item sem preço não entra' : 'itens sem preço não entram'} na conta.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="mt-2 text-xs text-stone-500">Os valores aparecem quando os itens tiverem preço (informe ao comprar ou no produto).</p>
           )}
         </div>
       )}
@@ -122,10 +139,13 @@ export function Shopping() {
 }
 
 function TodoRow({ item, product: p }: Row) {
-  const { dispatch, open, toast } = useStore()
+  const { state, dispatch, open, toast } = useStore()
+  const m = itemMoney(state, openList(state)!.id, item)
   const buy = () => {
-    dispatch({ type: 'purchase/register', id: uid(), productId: p.id, qty: remainingQty(item) || item.plannedQty || 1, unitPrice: null })
-    toast(`${p.name} no carrinho`)
+    const qty = remainingQty(item) || item.plannedQty || 1
+    // concluir = quantidade selecionada × preço médio (ajustável depois, tocando no item)
+    dispatch({ type: 'purchase/register', id: uid(), productId: p.id, qty, unitPrice: p.avgPrice })
+    toast(p.avgPrice != null ? `${p.name}: ${num(qty)} × ${money(p.avgPrice)} = ${money(qty * p.avgPrice)}` : `${p.name} no carrinho`)
   }
   return (
     <li className="flex items-center gap-3 px-3 py-2">
@@ -138,10 +158,12 @@ function TodoRow({ item, product: p }: Row) {
           tem {num(p.stock)} · mês {num(p.monthlyConsumption ?? 0)} {p.unit === 'pct' ? 'pct' : 'un'}
           {item.status === 'partial' && ` · pegou ${num(item.boughtQty)}`}
         </span>
-        {p.avgPrice != null && (
+        {m.unitPrice != null ? (
           <span className="block text-xs text-stone-500">
-            {num(item.plannedQty)} × {money(p.avgPrice)} = <strong className="font-semibold text-stone-700">{money(item.plannedQty * p.avgPrice)}</strong>
+            {money(m.unitPrice)}/{p.unit === 'pct' ? 'pct' : 'un'} · total <strong className="font-semibold text-stone-800">{money(m.total ?? 0)}</strong>
           </span>
+        ) : (
+          <span className="block text-xs text-amber-700">sem preço</span>
         )}
       </button>
       <Stepper size="sm" value={item.plannedQty} label={p.name} onChange={(n) => dispatch({ type: 'list/setPlanned', productId: p.id, qty: n })} />

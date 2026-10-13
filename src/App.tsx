@@ -8,6 +8,7 @@ import { ProductSheet } from './components/ProductSheet'
 import { MarketsSheet } from './components/MarketsSheet'
 import { SyncIcon } from './components/SyncSection'
 import { JoinSheet } from './components/JoinSheet'
+import { LogSheet } from './components/LogSheet'
 import { INVITE_PREFIX } from './lib/invite'
 import { EnoughSheet, ListSheet, PickItemSheet, PurchaseSheet, ReminderSheet, SettingsSheet } from './components/Sheets'
 import { Button, cx, useTyping } from './components/ui'
@@ -169,6 +170,7 @@ function Shell() {
       {modal?.kind === 'list' && <ListSheet id={modal.id} />}
       {modal?.kind === 'marketOrder' && <MarketsSheet marketId={modal.id} />}
       {modal?.kind === 'join' && <JoinSheet code={modal.code} />}
+      {modal?.kind === 'log' && <LogSheet />}
       {modal?.kind === 'settings' && <SettingsSheet />}
     </div>
   )

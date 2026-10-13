@@ -5,6 +5,8 @@ import { reducer, syncList, type Action } from './lib/reducer'
 import { localAdapter, type StorageAdapter } from './lib/storage'
 import { initialState } from './seed'
 import { useSync, type SyncApi } from './lib/useSync'
+import { describeAction } from './lib/describe'
+import { uid } from './lib/calc'
 import { Button, Sheet, cx } from './components/ui'
 
 /** Modais globais, abertos de qualquer tela. */
@@ -17,6 +19,7 @@ export type Modal =
   | { kind: 'list'; id: string }
   | { kind: 'marketOrder'; id: string }
   | { kind: 'join'; code: string }
+  | { kind: 'log' }
   | { kind: 'settings' }
 
 interface Ctx {
@@ -44,7 +47,7 @@ export const useStore = () => {
 }
 
 export function StoreProvider({ children, adapter = localAdapter }: { children: ReactNode; adapter?: StorageAdapter }) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => {
+  const [state, rawDispatch] = useReducer(reducer, undefined, () => {
     const saved = adapter.load()
     // dados de demonstração antigos (v0.1) são trocados pela lista inicial da casa
     return syncList(saved && !saved.demo ? saved : initialState())
@@ -74,7 +77,19 @@ export function StoreProvider({ children, adapter = localAdapter }: { children: 
     setConfirm(null)
   }
   const close = useCallback(() => setModal(null), [])
-  const sync = useSync(state, dispatch)
+  // a sincronização aplica dados de fora sem gerar histórico
+  const sync = useSync(state, rawDispatch)
+
+  // toda ação do usuário vira uma linha do histórico: o quê, quem (aparelho) e quando
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const deviceRef = useRef('')
+  deviceRef.current = sync.cfg?.device?.trim() || 'Este aparelho'
+  const dispatch = useCallback((a: Action) => {
+    const d = a.type === 'log/add' ? null : describeAction(stateRef.current, a)
+    rawDispatch(a)
+    if (d) rawDispatch({ type: 'log/add', entry: { id: uid(), at: new Date().toISOString(), by: deviceRef.current, ...d } })
+  }, [])
 
   return (
     <StoreCtx.Provider value={{ state, dispatch, toast, confirm, modal, open: setModal, close, sync }}>

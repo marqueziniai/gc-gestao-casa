@@ -57,7 +57,8 @@ export function SyncSection() {
           <SyncIcon status={sync.status} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-stone-900">{sync.status === 'error' || sync.status === 'offline' ? 'Sincronização com problema' : 'Sincronizado com o GitHub'}</p>
-            <p className="truncate text-xs text-stone-500">{sync.cfg.repo}{sync.cfg.device && ` · ${sync.cfg.device}`}</p>
+            <p className="truncate text-xs text-stone-500">{sync.cfg.repo}</p>
+            <DeviceName />
             <p className="mt-1 text-xs text-stone-500">Última sincronização: {timeLabel(sync.lastSync)}</p>
             {sync.error && <p className="mt-1 text-xs text-red-600">{sync.error}</p>}
             <p className="mt-2 text-xs text-stone-500">
@@ -100,11 +101,11 @@ export function SyncSection() {
           <Field label="Token do GitHub">
             <input className={inputCls} type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="github_pat_…" autoComplete="off" autoCapitalize="none" spellCheck={false} />
           </Field>
-          <Field label="Nome deste aparelho (opcional)">
-            <input className={inputCls} value={device} onChange={(e) => setDevice(e.target.value)} placeholder="Ex.: celular do Matheus" maxLength={30} />
+          <Field label="Seu nome (aparece no histórico)">
+            <input className={inputCls} value={device} onChange={(e) => setDevice(e.target.value)} placeholder="Ex.: Matheus" maxLength={30} />
           </Field>
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <Button className="w-full" onClick={() => void doConnect()} disabled={busy || !token.trim() || !repo.trim()}>
+          <Button className="w-full" onClick={() => void doConnect()} disabled={busy || !token.trim() || !repo.trim() || !device.trim()}>
             {busy ? 'Conectando…' : 'Conectar'}
           </Button>
           <button type="button" onClick={() => setHelp(!help)} className="flex min-h-10 w-full items-center justify-between text-sm font-medium text-teal-800">
@@ -123,6 +124,31 @@ export function SyncSection() {
         </div>
       )}
     </section>
+  )
+}
+
+/** Nome deste aparelho: identifica quem fez cada alteração no histórico. */
+function DeviceName() {
+  const { sync, toast } = useStore()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(sync.cfg?.device ?? '')
+  if (!sync.cfg) return null
+  if (!editing)
+    return (
+      <button type="button" onClick={() => { setValue(sync.cfg?.device ?? ''); setEditing(true) }} className="mt-1 min-h-8 text-left text-xs text-stone-600">
+        Este aparelho: <strong>{sync.cfg.device || 'sem nome'}</strong> <span className="text-teal-700 underline">alterar</span>
+      </button>
+    )
+  const save = () => {
+    sync.rename(value)
+    setEditing(false)
+    toast('Nome do aparelho salvo')
+  }
+  return (
+    <div className="mt-1 flex gap-2">
+      <input className={cx(inputCls, 'min-h-10 text-sm')} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder="Ex.: Ana" maxLength={30} autoFocus />
+      <Button className="min-h-10 px-3 text-sm" onClick={save}>Salvar</Button>
+    </div>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Archive, Download, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
+import { Archive, Download, History, Plus, RotateCcw, Trash2, Undo2, Upload } from 'lucide-react'
 import { useStore } from '../store'
 import { Badge, Button, Field, NumInput, SearchBox, Sheet, Stepper, cx, inputCls, normalize } from './ui'
 import { addMonths, dateLabel, money, num, parseNum, qtyLabel, remainingQty, suggestedQty, today, uid, unitInfo } from '../lib/calc'
@@ -20,7 +20,10 @@ export function PurchaseSheet({ productId, purchaseId, back }: { productId: stri
   // id fixo por abertura do formulário: toques repetidos não duplicam a compra
   const opId = useRef(uid())
   const [qty, setQty] = useState(() => editing?.qty ?? (item && remainingQty(item) > 0 ? remainingQty(item) : 1))
-  const [price, setPrice] = useState(() => (editing?.unitPrice == null ? '' : editing.unitPrice.toFixed(2).replace('.', ',')))
+  const [price, setPrice] = useState(() => {
+    const v = editing ? editing.unitPrice : p?.avgPrice
+    return v == null ? '' : v.toFixed(2).replace('.', ',')
+  })
   const [name, setName] = useState(p?.name ?? '')
   const [mode, setMode] = useState<'unit' | 'total'>('unit')
   const done = () => (back ? open(back) : close())
@@ -310,7 +313,7 @@ export function ItemStatusBadge({ status }: { status: string }) {
 
 /** Ajustes: backup e lista inicial. */
 export function SettingsSheet() {
-  const { state, dispatch, toast, close, confirm } = useStore()
+  const { state, dispatch, toast, close, confirm, open } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const exportData = () => {
@@ -350,6 +353,10 @@ export function SettingsSheet() {
     <Sheet title="Ajustes" onClose={close}>
       <div className="space-y-3">
         <SyncSection />
+        <Button variant="secondary" className="w-full justify-start" onClick={() => open({ kind: 'log' })}>
+          <History size={18} /> Histórico de alterações
+          {state.log.length > 0 && <span className="ml-auto text-xs font-normal text-stone-500">{state.log.length}</span>}
+        </Button>
         <p className="pt-1 text-sm text-stone-500">Backup manual (arquivo .json):</p>
         <Button variant="secondary" className="w-full justify-start" onClick={exportData}><Download size={18} /> Exportar backup (.json)</Button>
         <Button variant="secondary" className="w-full justify-start" onClick={() => fileRef.current?.click()}><Upload size={18} /> Importar backup</Button>
@@ -357,7 +364,7 @@ export function SettingsSheet() {
         <hr className="border-stone-200" />
         <Button variant="secondary" className="w-full justify-start" onClick={() => reset(true)}><RotateCcw size={18} /> Restaurar lista inicial de produtos</Button>
         <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => reset(false)}><Trash2 size={18} /> Apagar todos os dados</Button>
-        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v0.9</p>
+        <p className="pt-2 text-center text-xs text-stone-400">GC - Gestão Casa · v1.0</p>
       </div>
     </Sheet>
   )

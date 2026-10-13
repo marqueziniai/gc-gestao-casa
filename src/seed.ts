@@ -85,5 +85,6 @@ export const emptyState = (): AppState => ({
   categories: [...DEFAULT_CATEGORY_ORDER],
   markets: defaultMarkets(),
   marketId: 'andorinha',
+  log: [],
   demo: false,
 })

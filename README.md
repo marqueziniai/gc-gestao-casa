@@ -22,6 +22,19 @@ Três abas, pensadas para uso com uma mão:
 
 **Ajustes** (engrenagem): exportar/importar backup (.json), restaurar a lista inicial, apagar dados.
 
+### Contas da lista de compras
+
+- **Valor do item:** quantidade × preço unitário (preço médio, por pacote ou por unidade). Itens já comprados com preço valem o que foi pago.
+- **Estimado:** soma do valor de todos os itens da compra (pago + o que falta × preço médio).
+- **Gasto:** soma das compras registradas com preço.
+- **Falta gastar:** quantidade que ainda falta × preço médio.
+- **Estimativa parcial:** itens sem preço médio não entram na conta e o app avisa quantos são.
+- **Concluir com um toque:** registra a quantidade selecionada × o preço médio (32 águas × R$ 3,20 = R$ 102,40). Tocando no item, dá para corrigir o preço ou informar o total pago.
+
+### Histórico de alterações
+
+Em **Ajustes → Histórico de alterações** aparecem as últimas 300 alterações: o que foi feito, quem fez (nome informado ao conectar) e quando. O histórico é sincronizado entre os celulares, e cliques seguidos no mesmo controle viram uma linha só.
+
 ### Regras
 
 - **Falta comprar:** `max(0, preciso_no_mês − tenho)`. Produtos sem "preciso no mês" não entram sozinhos (dá para adicionar à mão).

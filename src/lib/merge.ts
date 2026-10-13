@@ -84,6 +84,10 @@ export function merge3(base: AppState, local: AppState, remote: AppState): AppSt
     lists: mergeById(base.lists, local.lists, remote.lists, (l) => l.id, mergeList),
     markets: mergeById(base.markets, local.markets, remote.markets, (m) => m.id),
     categories: mergeSet(base.categories, local.categories, remote.categories),
+    // histórico: une os dois lados, mais recentes primeiro
+    log: mergeById(base.log ?? [], local.log ?? [], remote.log ?? [], (e) => e.id)
+      .sort((x, y) => y.at.localeCompare(x.at))
+      .slice(0, 300),
     // mercado selecionado é preferência deste aparelho
     marketId: local.marketId,
   }

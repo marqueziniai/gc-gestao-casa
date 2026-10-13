@@ -1,4 +1,4 @@
-import type { AppState, ItemStatus, ListItem, Product, Purchase, ShoppingList } from '../types'
+import type { AppState, ItemStatus, ListItem, LogEntry, Product, Purchase, ShoppingList } from '../types'
 import { addDays, addMonths, monthName, round, suggestedQty, today, uid, weightedAvgPrice } from './calc'
 import { initialState, emptyState } from '../seed'
 
@@ -34,6 +34,9 @@ export type Action =
   | { type: 'market/remove'; id: string }
   | { type: 'category/add'; name: string }
   | { type: 'category/remove'; name: string; withItems: boolean }
+  | { type: 'log/add'; entry: LogEntry }
+
+export const LOG_LIMIT = 300
 
 export const openList = (s: AppState) => s.lists.find((l) => l.status === 'preparing' || l.status === 'active') ?? null
 
@@ -350,6 +353,14 @@ function baseReducer(s: AppState, a: Action): AppState {
         products: s.products.filter((p) => !ids.has(p.id)),
         lists: s.lists.map((l) => (l.status === 'preparing' || l.status === 'active' ? { ...l, items: l.items.filter((i) => !ids.has(i.productId)) } : l)),
       }
+    }
+
+    case 'log/add': {
+      const [last] = s.log
+      // cliques seguidos no mesmo controle, pelo mesmo aparelho, em até 3 min: atualiza a linha
+      const merge = last && a.entry.key && last.key === a.entry.key && last.by === a.entry.by && Date.parse(a.entry.at) - Date.parse(last.at) < 180_000
+      const log = merge ? [{ ...last, text: a.entry.text, at: a.entry.at }, ...s.log.slice(1)] : [a.entry, ...s.log]
+      return { ...s, log: log.slice(0, LOG_LIMIT) }
     }
 
     case 'data/replace':
